@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from brokers.base_broker import BaseBroker
+from src.brokers.base_broker import BaseBroker
 
 class BaseStrategy(ABC):
     """

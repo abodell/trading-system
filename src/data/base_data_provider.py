@@ -16,7 +16,7 @@ class BaseDataProvider(ABC):
 
     @abstractmethod
     def get_bars(
-        self, symbol: str, timeframe: str, limit: int = 100
+        self, symbol: str, timeframe: str, limit: int = 100, days_back: int = 7
     ) -> pd.DataFrame:
         """
         Return a DataFrame of OHLCV bars for the symbol

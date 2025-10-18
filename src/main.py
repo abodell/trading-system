@@ -30,12 +30,12 @@ def test_stock_historical():
     print()
 
     # Test 2: Daily bars
-    print("=== Daily Bars (last 10 days) ===")
+    print("=== Hourly Bars (last 3 days by hour) ===")
     for sym in SYMBOLS:
-        df = provider.get_bars(sym, "1Day", limit=100, days_back=10)
+        df = provider.get_bars(sym, "1Hour", limit=100, days_back=3)
         if not df.empty:
             print(f"\n{sym}:")
-            print(df[["open", "close", "volume"]].tail(5))
+            print(df[["open", "close", "volume"]])
     print()
 
     # Test 3: SimpleSMA strategy

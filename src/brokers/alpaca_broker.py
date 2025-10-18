@@ -2,8 +2,8 @@
 
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
-from brokers.base_broker import BaseBroker
-from alpaca_client import AlpacaClient
+from src.brokers.base_broker import BaseBroker
+from src.alpaca_client import AlpacaClient
 
 
 class AlpacaBroker(BaseBroker):
