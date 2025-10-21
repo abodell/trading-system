@@ -2,7 +2,7 @@
 TRADING SYSTEM PROJECT - PLAN & PROGRESS
 ================================================================================
 Generated: October 17, 2025
-Current Date/Time: 10/17/2025, 9:00 PM EDT
+Last Updated: October 20, 2025, 8:00 AM EDT
 
 ================================================================================
 PART 1: WHAT WE'VE BUILT SO FAR
@@ -49,10 +49,30 @@ COMPLETED COMPONENTS:
 │
 ├── Strategies
 │   └── SimpleSMA (Simple Moving Average crossover)
-│       ├── evaluate_signal() - Returns "buy", "sell", "hold"
+│       ├── evaluate_signal(bars=None) - Returns "buy", "sell", "hold"
 │       ├── execute_trade(signal) - Places orders via broker
 │       ├── Configurable short_window (default: 5) and long_window (default: 20)
-│       └── Uses data_provider for historical bars
+│       ├── Uses data_provider for live execution
+│       └── Accepts optional bars DataFrame for backtesting
+│
+├── Backtesting Engine ✓ COMPLETE
+│   ├── BacktestEngine (src/backtesting/backtest_engine.py)
+│   │   ├── __init__(strategy, broker, data_provider, starting_cash)
+│   │   ├── run(symbol, days_back, timeframe) - Main execution loop
+│   │   ├── Bar-by-bar processing with no future data peeking
+│   │   └── Trade tracking (entry/exit prices, P&L)
+│   │
+│   ├── BacktestResult (src/backtesting/backtest_result.py)
+│   │   ├── total_trades, total_pnl, return_pct
+│   │   ├── win_rate, num_wins, num_losses
+│   │   ├── avg_win, avg_loss
+│   │   ├── summary() - Return all metrics as dict
+│   │   └── print_summary() - Pretty print results
+│   │
+│   └── Test Script (tests/backtest/backtest_simple_sma.py)
+│       ├── Run backtests on multiple symbols
+│       ├── Compare results across different symbols
+│       └── Easy to extend with new strategies
 │
 ├── Main Application
 │   └── src/main.py
@@ -73,244 +93,285 @@ COMPLETED COMPONENTS:
     │   ├── strategies/
     │   │   ├── base_strategy.py
     │   │   └── simple_sma.py
+    │   ├── backtesting/
+    │   │   ├── __init__.py
+    │   │   ├── backtest_engine.py
+    │   │   └── backtest_result.py
     │   └── main.py
     │
     ├── tests/
-    │   └── (to be created)
+    │   └── backtest/
+    │       ├── backtest_simple_sma.py
+    │       └── results/
     │
     ├── .env (Alpaca credentials)
+    ├── conftest.py (Python path setup)
+    ├── DEVELOPMENT_PLAN.txt (this file)
     └── requirements.txt
 
 KEY ARCHITECTURE DECISIONS:
 - Abstract base classes for extensibility
 - Unified providers (real-time + historical in one class)
 - days_back parameter for intuitive historical data fetching
-- Context manager support for brokers
-- Paper trading by default (safety)
+- Optional bars parameter in strategy for backtesting vs live
+- Bar-by-bar backtesting prevents look-ahead bias
+- Strategy-agnostic BacktestEngine works with any strategy
+- Engine code vs test code separated (reusable vs specific use cases)
 
 TESTING DONE:
 ✓ Stock historical data retrieval
 ✓ Crypto historical data retrieval (24/7)
-✓ SimpleSMA strategy evaluation
+✓ SimpleSMA strategy evaluation (both live and backtesting)
 ✓ Stock real-time WebSocket (during market hours)
 ✓ Crypto real-time WebSocket (24/7)
 ✓ Account summary retrieval
 ✓ Position management
+✓ Backtesting on multiple symbols (AAPL, MSFT, NVDA, BMNR)
+✓ Trade tracking and P&L calculation
+✓ Metrics calculation (win rate, average win/loss, return %)
 
 KNOWN LIMITATIONS:
 - Real-time stock data only during market hours (9:30 AM - 4:00 PM ET)
 - Crypto streams 24/7 but on sandbox may have limited data
-- Strategy only executes 1 share at a time (needs position sizing)
-- No stop losses or profit targets yet
-- No backtesting yet
+- Strategy executes 1 share at a time (will fix in Phase 2)
+- No stop losses or profit targets yet (will fix in Phase 2)
+- Basic metrics only (no Sharpe ratio or max drawdown yet)
+- No position sizing based on account equity yet
 
 ================================================================================
 PART 2: THE PLAN GOING FORWARD
 ================================================================================
 
-PHASE 1: BACKTESTING ENGINE (NEXT - IN PROGRESS)
-==========================================
-Goal: Validate strategies on historical data before live trading
+PHASE 1: BACKTESTING ENGINE ✓ COMPLETE
+======================================
+Status: FINISHED
 
-Tasks:
-1. Create src/backtesting/ directory
-   ├── backtest_engine.py - Main backtesting logic
-   ├── backtest_result.py - Results object & metrics
-   └── metrics.py - Calculate performance metrics
+What was built:
+✓ BacktestEngine with bar-by-bar processing
+✓ BacktestResult with core metrics
+✓ Test script for running multiple backtests
+✓ SimpleSMA strategy updated to support backtesting
+✓ No look-ahead bias (only bars up to current point)
 
-2. BacktestEngine class
-   ├── __init__(strategy, broker, data_provider, starting_cash)
-   ├── run(symbol, start_date, end_date) - Main execution loop
-   ├── _process_bar(bar) - Process each historical bar
-   ├── _execute_trade(signal) - Execute trades with logging
-   ├── get_results() - Return BacktestResult object
+What was NOT built (for future):
+- Sharpe ratio calculation
+- Max drawdown calculation
+- Profit factor
+- Consecutive wins/losses
+- CSV/JSON export
 
-3. BacktestResult class
-   ├── total_return (%)
-   ├── trades (list)
-   ├── win_rate
-   ├── max_drawdown
-   ├── sharpe_ratio
-   ├── profit_factor
-   ├── to_dict() / to_csv()
-
-4. Create tests/backtest/ directory
-   ├── backtest_simple_sma.py - Run SimpleSMA backtest
-   └── results/ - Store backtest outputs
-
-5. Testing
-   - Create unit tests for BacktestEngine
-   - Create backtest scenarios for SimpleSMA
-   - Validate results match manual calculations
-
-Deliverable: Backtest SimpleSMA on AAPL (last 60 days) with metrics
+Deliverable: Functional backtesting system for SimpleSMA ✓
 
 
-PHASE 2: POSITION SIZING & RISK MANAGEMENT
-===========================================
-Goal: Trade appropriate position sizes based on account equity
+PHASE 2: POSITION SIZING & RISK MANAGEMENT (NEXT - PRIORITY)
+==============================================================
+Goal: Trade appropriate position sizes based on account equity + add safety limits
+
+Why this is critical:
+- Currently trades 1 share (hardcoded) - not scalable
+- Backtesting shows strategy works, but need proper risk limits before live
+- No stop losses = unlimited downside
+- Foundation for Phase 3 (automated trading loop)
 
 Tasks:
 1. Create src/portfolio/ directory
-   ├── position_manager.py
-   └── risk_config.py
+   ├── position_manager.py - Calculate position size
+   ├── risk_config.py - Risk parameters per strategy
+   └── __init__.py
 
-2. PositionManager class
-   ├── calculate_position_size(account_equity, signal)
-   ├── apply_max_drawdown_limit()
-   ├── apply_max_daily_loss()
+2. RiskConfig class
+   ├── risk_per_trade (e.g., 2% of equity per trade)
+   ├── max_daily_loss (e.g., 5% of daily equity)
+   ├── max_position_size (e.g., max qty per trade)
+   ├── max_positions_open (e.g., 3 concurrent trades)
+   ├── stop_loss_pct (e.g., 5% below entry)
+   └── take_profit_pct (e.g., 10% above entry)
+
+3. PositionManager class
+   ├── calculate_position_size(account_equity, signal, stop_loss_distance)
+   ├── check_daily_loss_limit(current_pnl)
+   ├── check_position_limit(current_positions)
    ├── get_current_exposure()
+   └── can_trade(signal) - Check if trade is allowed
 
-3. Risk config (per strategy)
-   ├── risk_per_trade (e.g., 2% of equity)
-   ├── max_daily_loss (e.g., 5%)
-   ├── max_position_size
-   ├── max_positions_open
-   ├── stop_loss_pct
-   ├── take_profit_pct
+4. Update BacktestEngine
+   ├── Add position_manager to __init__
+   ├── Use calculate_position_size() for each trade
+   ├── Track max drawdown
+   ├── Implement stop losses and profit targets
+   └── Update BacktestResult with new metrics
 
-4. Update strategies to use PositionManager
-   └── execute_trade() now calls position_manager.calculate_position_size()
+5. Update SimpleSMA.execute_trade()
+   ├── Accept position_manager parameter
+   ├── Use calculate_position_size() instead of hardcoded qty
+   ├── Implement stop loss/take profit orders
 
-Deliverable: SimpleSMA trades 2% position size with stop losses
+6. Backtest with position sizing
+   ├── Run backtest on SimpleSMA with 2% risk per trade
+   ├── Compare results: 1 share vs risk-based sizing
+   ├── Verify stop losses work correctly
+
+Deliverable: SimpleSMA trades risk-adjusted position sizes with stop losses
 
 
 PHASE 3: TRADING LOOP ORCHESTRATOR
 ===================================
-Goal: Systematically run strategies on a schedule
+Goal: Systematically run strategies on a schedule during market hours
 
 Tasks:
 1. Create src/engine/ directory
    ├── trading_engine.py
    ├── trade_logger.py
-   └── scheduler.py
+   ├── scheduler.py
+   └── __init__.py
 
 2. TradingEngine class
-   ├── add_strategy(symbol, strategy, interval)
-   ├── start() - Main event loop
-   ├── _run_strategy_cycle()
-   ├── _log_trade()
+   ├── add_strategy(symbol, strategy, interval, risk_config)
+   ├── start() - Main event loop (non-blocking)
+   ├── _run_strategy_cycle() - Execute all strategies
+   ├── _should_run_trade(symbol) - Check if market is open
+   └── stop()
 
 3. Scheduler
-   ├── Run every 1 minute, 5 minutes, hourly, daily, etc.
-   ├── Handle market hours (don't run outside market for stocks)
+   ├── Run strategies every N seconds/minutes/hours
+   ├── Skip outside market hours for stocks (9:30 AM - 4:00 PM ET)
+   ├── Always run for crypto (24/7)
    ├── Handle market holidays
+   └── Log execution times
 
 4. TradeLogger
-   ├── Log all trades to CSV/JSON
-   ├── Track entry/exit prices
-   ├── Track P&L
-   ├── Store in logs/ directory
+   ├── Log all trades (entry/exit) to CSV
+   ├── Track entry/exit prices, qty, P&L
+   ├── Daily P&L summary
+   ├── Store in /logs/trades_{symbol}_{date}.csv
 
-Deliverable: Run SimpleSMA on AAPL every 5 minutes during market hours
+5. Integration with backtesting
+   ├── Use same SimpleSMA in backtest and live
+   ├── Use same RiskConfig in backtest and live
+   ├── Compare historical backtest results vs live performance
+
+Deliverable: Run SimpleSMA on 3 symbols every 5 minutes during market hours
 
 
 PHASE 4: MORE STRATEGIES
 ========================
-Goal: Validate framework with multiple strategy types
+Goal: Diversify signal sources for better opportunity detection
 
 Strategies to build:
-1. RSI (Relative Strength Index)
-   ├── Overbought/oversold signals
-   ├── Parameters: period, overbought_level, oversold_level
+1. RSI Strategy (Relative Strength Index)
+   ├── Parameters: period=14, overbought=70, oversold=30
+   ├── Signal: Buy when oversold, sell when overbought
+   ├── Use case: Mean reversion in ranging markets
 
-2. MACD (Moving Average Convergence Divergence)
-   ├── Signal line crossovers
-   ├── Parameters: fast, slow, signal periods
+2. MACD Strategy (Moving Average Convergence Divergence)
+   ├── Parameters: fast=12, slow=26, signal=9
+   ├── Signal: Buy on signal line crossover, sell on opposite
+   ├── Use case: Trend following
 
-3. Mean Reversion
-   ├── Buy when price drops below moving average
-   ├── Sell when price rises above moving average
-   ├── Parameters: lookback period, threshold
+3. Mean Reversion Strategy
+   ├── Parameters: lookback=20, threshold=1.5 std devs
+   ├── Signal: Buy when price < (SMA - threshold), sell on reversion
+   ├── Use case: Contrarian trading in stable markets
 
-4. Momentum
-   ├── Buy on uptrend, sell on downtrend
-   ├── Parameters: momentum period, threshold
+4. Momentum Strategy
+   ├── Parameters: period=20, threshold=1%
+   ├── Signal: Buy on uptrend acceleration, sell on deceleration
+   ├── Use case: Trend acceleration detection
 
 Each strategy:
 ├── Inherits from BaseStrategy
-├── Has evaluate_signal() and execute_trade()
-├── Can be backtested
-└── Can be run live
+├── evaluate_signal(bars=None) for live/backtest
+├── execute_trade(signal) with position_manager
+├── Configurable parameters
+├── Works with backtesting engine
+└── Works with trading loop
 
-Deliverable: 4 new strategies tested on 60-day backtest
+Deliverable: 4 new strategies tested on 60-day backtest with risk management
 
 
 PHASE 5: METRICS & PERFORMANCE LOGGING
 =======================================
-Goal: Track strategy performance over time
+Goal: Track strategy performance over time and identify winners
 
 Tasks:
 1. Create src/metrics/ directory
    ├── performance_tracker.py
-   └── report_generator.py
+   ├── report_generator.py
+   ├── __init__.py
 
-2. PerformanceTracker
+2. BacktestResult enhancements
+   ├── Add Sharpe ratio calculation
+   ├── Add max drawdown / drawdown timeline
+   ├── Add profit factor (gross profit / gross loss)
+   ├── Add consecutive wins/losses
+
+3. PerformanceTracker (for live trading)
    ├── Track daily/weekly/monthly returns
-   ├── Calculate rolling Sharpe ratio
-   ├── Calculate drawdown timeseries
-   ├── Track win/loss streaks
+   ├── Calculate rolling Sharpe ratio (30 days)
+   ├── Track drawdown from peak
+   ├── Identify streaks (win/loss consecutive trades)
+   ├── Store in /logs/performance_{date}.json
 
-3. ReportGenerator
-   ├── Generate PDF reports
-   ├── Plot equity curve
-   ├── Plot drawdown chart
-   ├── Create monthly/yearly summaries
-   ├── Export to charts/ directory
+4. ReportGenerator
+   ├── Compare backtest vs live performance
+   ├── Generate summary tables (all strategies)
+   ├── Identify best/worst performing strategies
+   ├── Export results to CSV/JSON
 
-Deliverable: Monthly performance reports for live trading
+Deliverable: Performance dashboard showing which strategies are winning
 
 
 PHASE 6: ADVANCED FEATURES (OPTIONAL)
 ======================================
 - Multi-symbol portfolio optimization
-- Strategy ensemble/voting system
+- Strategy ensemble/voting system (combine signals)
 - Machine learning signal generation
 - Options trading support
 - Futures trading support
-- Live alerts/notifications
-- Web dashboard
+- Live alerts/notifications (email/SMS)
+- Web dashboard (Flask/React)
+- Walk-forward analysis for robust backtesting
 
 
 ================================================================================
-PART 3: IMMEDIATE NEXT STEPS (THIS SESSION)
+PART 3: IMMEDIATE NEXT STEPS (NEXT SESSION)
 ================================================================================
 
-1. Create /src/backtesting/ directory structure
-2. Build BacktestEngine class
-3. Build BacktestResult class with metrics calculation
-4. Build metrics.py (Sharpe ratio, max drawdown, etc.)
-5. Create /tests/backtest/backtest_simple_sma.py
-6. Run SimpleSMA backtest on AAPL (last 60 days)
-7. Validate results look reasonable
+Priority: PHASE 2 - Position Sizing & Risk Management
+
+1. Create /src/portfolio/ directory with RiskConfig and PositionManager
+2. Implement calculate_position_size() logic (Kelly criterion or fixed %)
+3. Add stop loss tracking to BacktestEngine
+4. Add max drawdown calculation to BacktestResult
+5. Run backtest with position sizing on SimpleSMA
+6. Compare results: 1 share vs 2% risk per trade
 
 Expected output:
-- SimpleSMA backtest report with:
-  ├── Total return
-  ├── Number of trades
-  ├── Win rate
-  ├── Max drawdown
-  ├── Sharpe ratio
-  └── Equity curve plot
+- SimpleSMA backtest with variable position sizing
+- Stop losses automatically triggered
+- Max drawdown metric calculated
+- Compare equity curves: fixed vs risk-based sizing
 
-Timeline: Should be complete in this session
+Timeline: Should be complete in next session
 
 
 ================================================================================
 PART 4: DEPENDENCIES & REQUIREMENTS
 ================================================================================
 
-Current requirements.txt:
+Current requirements.txt (to verify):
 - alpaca-py (for Alpaca API)
 - pandas (data manipulation)
 - numpy (numerical computing)
 - python-dotenv (environment variables)
 
-Will need to add:
-- matplotlib or plotly (for charts)
-- scipy (for statistical calculations)
-- pytz (timezone handling)
-- pytest (unit testing)
+Will need to add for Phase 2+:
+- scipy (for statistical calculations - Sharpe ratio, max drawdown)
+- pytz (timezone handling - market hours detection)
+
+Optional (Phase 5+):
+- matplotlib or plotly (for charts and reports)
+- pytest (for unit testing)
 
 
 ================================================================================
@@ -324,48 +385,87 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets/v2
 
 For paper trading (recommended for development)
 
+Directory structure to create:
+/logs/ - Trade execution logs
+/results/ - Backtest results
+/charts/ - Performance charts (Phase 5+)
+
 
 ================================================================================
 PART 6: FILE LOCATIONS REFERENCE
 ================================================================================
 
 Core Logic:
-- Backtesting: /src/backtesting/backtest_engine.py
-- Strategies: /src/strategies/
-- Data: /src/data/
-- Broker: /src/brokers/
+- Backtesting: /src/backtesting/backtest_engine.py, backtest_result.py
+- Strategies: /src/strategies/base_strategy.py, simple_sma.py
+- Data: /src/data/stock_data_provider.py, crypto_data_provider.py
+- Broker: /src/brokers/alpaca_broker.py, alpaca_client.py
+- Portfolio (Phase 2): /src/portfolio/position_manager.py, risk_config.py
+- Trading Engine (Phase 3): /src/engine/trading_engine.py, scheduler.py, trade_logger.py
+- Metrics (Phase 5): /src/metrics/performance_tracker.py, report_generator.py
 
 Tests:
-- Unit tests: /tests/unit/
-- Backtest scripts: /tests/backtest/
+- Backtest scripts: /tests/backtest/backtest_simple_sma.py
 - Backtest results: /tests/backtest/results/
+- Unit tests (future): /tests/unit/
 
 Outputs:
-- Backtest results: /results/
-- Trading logs: /logs/
+- Trading logs: /logs/trades_{symbol}_{date}.csv
+- Performance logs: /logs/performance_{date}.json
+- Backtest results: /results/backtest_{symbol}_{date}.json
 - Charts: /charts/
 
 
 ================================================================================
-NOTES FOR FUTURE CONTEXT WINDOWS
+PART 7: ARCHITECTURE SUMMARY
+================================================================================
+
+Data Flow:
+1. Data Providers (StockDataProvider, CryptoDataProvider)
+   ↓
+2. Strategies (SimpleSMA, future: RSI, MACD, etc.)
+   ├─→ Backtesting (BacktestEngine) → Results
+   └─→ Live Trading (TradingEngine) → TradeLogger
+
+3. Position Sizing (PositionManager) ensures risk limits
+   ↓
+4. Broker (AlpacaBroker) executes orders
+   ↓
+5. Metrics & Logging track performance
+
+Design principles:
+- Strategy-agnostic: Any strategy works with engine
+- Risk-first: Position sizing before execution
+- Data-driven: Backtest before live
+- Modular: Each component independent
+- Testable: Easy to add new strategies/features
+
+
+================================================================================
+PART 8: NOTES FOR FUTURE CONTEXT WINDOWS
 ================================================================================
 
 If context runs out:
-1. Reference this file to understand what's been built
-2. All code is in /src/ - check file structure above
-3. Start next session by running: python src/main.py
-4. Continue with PHASE 1 (Backtesting Engine)
-5. Keep this file updated as you build new phases
+1. Read this file to understand current state
+2. We just completed PHASE 1 (Backtesting)
+3. Next: PHASE 2 (Position Sizing & Risk Management)
+4. See PART 3 for next immediate steps
+5. All source code in /src/ - check file structure in PART 6
 
-Key design patterns used:
-- Abstract base classes (ABC) for interfaces
-- Composition over inheritance
-- Context managers for resource management
-- Strategy pattern for pluggable strategies
-- Provider pattern for data sources
+Key commands:
+- Run backtest: python tests/backtest/backtest_simple_sma.py
+- Run live test: python src/main.py
+- Run live stream: python src/main.py realtime
 
-Common issues encountered:
-- Real-time data only works during market hours (stocks)
-- Crypto data always available (24/7)
-- Event loop conflicts when calling async from threads
-- Use synchronous stop() instead of async close() for websockets
+Quick reference:
+- BacktestEngine: Takes strategy, runs historical bars, returns results
+- SimpleSMA: Evaluates SMA crossover, can accept bars for backtesting
+- StockDataProvider: Historical REST + live WebSocket for stocks
+- CryptoDataProvider: Same interface, works 24/7
+- AlpacaBroker: Paper trading by default (safe)
+
+Common issues & solutions:
+- Import errors: Run from project root, conftest.py handles paths
+- Real-time no quotes: Only works 9:30 AM - 4:00 PM ET for stocks
+- Crypto data: Available 24/7, sandbox may have limited history
+- Module not found: Check __init__.py files exist in each directory

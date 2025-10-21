@@ -8,8 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.strategies.base_strategy import BaseStrategy
+from src.portfolio.position_manager import PositionManager
+from src.portfolio.risk_config import RiskConfig
 from src.brokers.base_broker import BaseBroker
 from src.data.base_data_provider import BaseDataProvider
+from src.backtesting.backtest_result import BacktestResult
 
 class BacktestEngine:
     """
@@ -21,13 +24,19 @@ class BacktestEngine:
             strategy: BaseStrategy,
             broker: BaseBroker,
             data_provider: BaseDataProvider,
-            starting_cash: float = 100000.0
+            starting_cash: float = 100000.0,
+            risk_config: RiskConfig = None,
     ):
         self.strategy = strategy
         self.broker = broker
         self.data_provider = data_provider
         self.starting_cash = starting_cash
         self.current_cash = starting_cash
+
+        # Position management
+        if risk_config is None:
+            risk_config = RiskConfig() # Default
+        self.position_manager = PositionManager(risk_config)
 
         # Tracking
         self.trades = []
@@ -75,12 +84,16 @@ class BacktestEngine:
 
             # Execute trades
             if signal == "buy" and self.position is None:
-                self.position = {
-                    "entry_price": close_price,
-                    "entry_date": timestamp,
-                    "qty": 1
-                }
-                print(f"-> ENTER LONG @ ${close_price:.2f}")
+                # Calculate position size based on stop loss distance
+                stop_loss_distance = close_price * self.position_manager.config.stop_loss_pct
+                qty = self.position_manager.calculate_position_size(self.starting_cash, stop_loss_distance)
+
+                if qty > 0:
+                    pos = self.position_manager.open_position(symbol, close_price, qty, timestamp)
+                    self.position = pos
+                    print(f"-> ENTER LONG: {qty} shares @ ${close_price:.2f} | Stop: ${pos['stop_loss_price']:.2f}")
+                else:
+                    print("-> SKIP: Position too small for risk")
             
             elif signal == "sell" and self.position is not None:
                 pnl = (close_price - self.position['entry_price']) * self.position['qty']
@@ -92,13 +105,39 @@ class BacktestEngine:
                     "pnl": pnl
                 })
                 print(f"-> EXIT LONG @ ${close_price:.2f} | P&L: {pnl:.2f}")
+                self.position_manager.close_position(symbol)
                 self.position = None
+        print(f"\nBacktest complete! Processed {len(bars)} bars")
+        print(f"Total trades: {len(self.trades)}")
 
-        return {
-            "symbol": symbol,
-            "bars_processed": len(bars),
-            "status": "complete"
-        }
+        if self.trades:
+            print("\n=== Trade Summary ===")
+            for i, trade in enumerate(self.trades, 1):
+                print(
+                    f"Trade {i}: "
+                    f"Entry ${trade['entry_price']:.2f} → Exit ${trade['exit_price']:.2f} | "
+                    f"P&L: ${trade['pnl']:.2f}"
+                )
+            
+            total_pnl = sum(t["pnl"] for t in self.trades)
+            wins = len([t for t in self.trades if t["pnl"] > 0])
+            losses = len([t for t in self.trades if t["pnl"] < 0])
+            
+            print(f"\nTotal P&L: ${total_pnl:.2f}")
+            print(f"Win Rate: {wins}/{len(self.trades)} ({100*wins/len(self.trades):.1f}%)")
+            print(f"Wins: {wins} | Losses: {losses}")
+        else:
+            print("No trades executed")
+        
+        result = BacktestResult(
+            symbol=symbol,
+            starting_cash=self.starting_cash,
+            trades=self.trades,
+            bars_processed=len(bars),
+        )
+        result.print_summary()
+
+        return result.summary()
 
 if __name__ == "__main__":
     from src.brokers.alpaca_broker import AlpacaBroker
