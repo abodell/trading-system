@@ -3,7 +3,7 @@ import pandas as pd
 
 from alpaca.data.live import CryptoDataStream
 from alpaca.data.historical import CryptoHistoricalDataClient
-from alpaca.data.requests import CryptoBarsRequest, CryptoLatestTradeRequest
+from alpaca.data.requests import CryptoBarsRequest, CryptoLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame
 
 from .base_data_provider import BaseDataProvider
@@ -32,22 +32,14 @@ class CryptoDataProvider(BaseDataProvider):
         self.hist = CryptoHistoricalDataClient(api_key, secret_key)
     
     def get_latest_price(self, symbol: str) -> Optional[float]:
+        """ Get latest ask price (what we'd pay to buy) """
         try:
-            req = CryptoBarsRequest(
-                symbol_or_symbols=symbol,
-                timeframe=TimeFrame.Minute,
-                limit=1,
-            )
-            res = self.hist.get_crypto_bars(req)
-            if res.df.empty:
-                return None
-            
-            df = res.df
-            if isinstance(df.index, pd.MultiIndex):
-                df = df.xs(symbol)
-            
-            if not df.empty:
-                return float(df["close"].iloc[-1])
+            req = CryptoLatestQuoteRequest(symbol_or_symbols = symbol)
+            res = self.hist.get_crypto_latest_quote(req)
+
+            if symbol in res:
+                quote = res[symbol]
+                return float(quote.ask_price)
             return None
         except Exception:
             return None

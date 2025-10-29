@@ -10,11 +10,13 @@ class BacktestResult:
             starting_cash: float,
             trades: List[Dict],
             bars_processed: int,
+            equity_curve: List[Dict]
     ):
         self.symbol = symbol
         self.starting_cash = starting_cash
         self.trades = trades
         self.bars_processed = bars_processed
+        self.equity_curve = equity_curve
     
     @property
     def total_trades(self) -> int:
@@ -54,6 +56,27 @@ class BacktestResult:
         """ Return as percentage of starting capital """
         return (self.total_pnl / self.starting_cash) * 100
     
+    @property
+    def max_drawdown(self) -> float:
+        """
+        Calculate maximum drawdown as percentage.
+        Drawdown = (Peak - Trough) / Peak
+        """
+        if not self.equity_curve:
+            return 0.0
+        
+        equity_values = [e["equity"] for e in self.equity_curve]
+        peak = equity_values[0]
+        max_dd = 0.0
+
+        for equity in equity_values:
+            if equity > peak:
+                peak = equity
+            drawdown = (peak - equity) / peak
+            max_dd = max(max_dd, drawdown)
+        
+        return max_dd
+    
     def summary(self) -> Dict:
         """ Return all metrics as a dictionary """
         return {
@@ -66,7 +89,8 @@ class BacktestResult:
             "num_wins": self.num_wins,
             "num_losses": self.num_losses,
             "avg_win": self.avg_win,
-            "avg_loss": self.avg_loss
+            "avg_loss": self.avg_loss,
+            "max_drawdown": self.max_drawdown
         }
     
     def print_summary(self):
@@ -79,6 +103,7 @@ class BacktestResult:
         print(f"Total Trades: {s['total_trades']}")
         print(f"Total P&L: ${s['total_pnl']:.2f}")
         print(f"Return: {s['return_pct']:.2f}%")
+        print(f"Max Drawdown: {s['max_drawdown']*100:.2f}%")
         print(f"Win Rate: {s['win_rate']*100:.1f}% ({s['num_wins']}/{s['total_trades']})")
         print(f"Avg Win: ${s['avg_win']:.2f} | Avg Loss: ${s['avg_loss']:.2f}")
         print("="*60 + "\n")

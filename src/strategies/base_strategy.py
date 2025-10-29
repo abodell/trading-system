@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from src.brokers.base_broker import BaseBroker
+from typing import Optional
+import pandas as pd
 
 class BaseStrategy(ABC):
     """
@@ -13,7 +15,7 @@ class BaseStrategy(ABC):
         self.symbol = symbol
 
     @abstractmethod
-    def evaluate_signal(self) -> str:
+    def evaluate_signal(self, bars: Optional[pd.DataFrame] = None) -> str:
         """
         Determine trading signal.
 

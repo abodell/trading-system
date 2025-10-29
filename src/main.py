@@ -73,6 +73,10 @@ def test_stock_realtime():
     STREAM_TIMEOUT_SECONDS = 30
 
     async def on_quote(quote):
+        # Check if we should stop processing
+        if stop_flag["stop"]:
+            return
+        
         try:
             sym = quote.symbol
             tick_counts[sym] += 1
@@ -80,9 +84,10 @@ def test_stock_realtime():
                 f"[QUOTE] {sym} bid=${quote.bid_price:.2f} "
                 f"ask=${quote.ask_price:.2f} | count={tick_counts[sym]}"
             )
+            # Only stop ONCE
             if all(
                 tick_counts[s] >= MAX_TICKS_PER_SYMBOL for s in SYMBOLS
-            ):
+            ) and not stop_flag["stop"]:  # Add this check
                 print("\nReached max ticks per symbol, stopping...")
                 provider.stop()
                 stop_flag["stop"] = True
@@ -97,8 +102,11 @@ def test_stock_realtime():
         time.sleep(STREAM_TIMEOUT_SECONDS)
         if not stop_flag["stop"]:
             print(f"\nTimeout reached, stopping stream...")
-            provider.stop()
-            stop_flag["stop"] = True
+            try:
+                provider.stop()
+                stop_flag["stop"] = True
+            except Exception as e:
+                print(f"Error stopping: {e}")
 
     t = threading.Thread(target=timeout_stop, daemon=True)
     t.start()

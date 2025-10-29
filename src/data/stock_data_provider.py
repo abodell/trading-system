@@ -5,7 +5,7 @@ import pandas as pd
 
 from alpaca.data.live import StockDataStream
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest, StockLatestTradeRequest
+from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame
 
 from .base_data_provider import BaseDataProvider
@@ -36,16 +36,18 @@ class StockDataProvider(BaseDataProvider):
         self.hist = StockHistoricalDataClient(api_key, secret_key)
 
     def get_latest_price(self, symbol: str) -> Optional[float]:
-        """Get the latest traded price for a symbol"""
+        """ Get the latest ask price (what we'd pay to buy) """
         try:
-            req = StockLatestTradeRequest(symbol_or_symbols=symbol)
-            res = self.hist.get_stock_latest_trade(req)
-            trade = res.get(symbol)
-            if trade:
-                return float(trade.price)
+            req = StockLatestQuoteRequest(symbol_or_symbols = symbol)
+            res = self.hist.get_stock_latest_quote(req)
+
+            if symbol in res:
+                quote = res[symbol]
+                return float(quote.ask_price)
             return None
         except Exception:
             return None
+
 
     def get_bars(
         self,

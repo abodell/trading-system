@@ -33,6 +33,27 @@ class BaseBroker(ABC):
         """ List orders by status (open, closed, canceled, etc.) """
         pass
 
+    @abstractmethod
+    def get_order_details(self, order: object, symbol: str) -> Dict:
+        """
+        Extract fill details from order, accounting for broker fees.
+        
+        Returns dict with:
+        {
+            "filled_qty": float,       # Actual filled quantity
+            "filled_price": float,     # Average fill price
+            "order_id": str,
+            "status": str,
+            "qty_requested": float
+        }
+        
+        This is broker-specific because:
+        - Different brokers have different fee structures
+        - Some apply fees to qty, others don't
+        - Position tracking must account for actual received/sold qty
+        """
+        pass
+
     def __enter__(self):
         """ Optional context manager support. """
         return self

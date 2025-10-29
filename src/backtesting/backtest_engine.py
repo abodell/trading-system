@@ -77,13 +77,42 @@ class BacktestEngine:
         for idx, (timestamp, bar) in enumerate(bars.iterrows()):
             # Pass bars up to this point to strategy
             bars_so_far = bars.iloc[:idx+1].copy()
-            signal = self.strategy.evaluate_signal(bars=bars_so_far)
-            
             close_price = bar["close"]
+
+            # First we check for stop loss or take profit thresholds
+            if self.position is not None:
+                exit_reason = self.position_manager.check_position_exit(
+                    symbol,
+                    close_price
+                )
+                if exit_reason:
+                    pnl = (close_price - self.position['entry_price']) * self.position['qty']
+                    self.trades.append({
+                        "entry_date": self.position["entry_date"],
+                        "entry_price": self.position["entry_price"],
+                        "exit_date": timestamp,
+                        "exit_price": close_price,
+                        "pnl": pnl,
+                        "exit_reason": exit_reason
+                    })
+                    print(f"-> EXIT ({exit_reason.upper()}) @ ${close_price:.2f} | P&L: ${pnl:.2f}")
+                    self.position_manager.close_position(symbol)
+                    self.position = None
+                    continue
+
+            signal = self.strategy.evaluate_signal(bars=bars_so_far)
             print(f"[{idx}] {timestamp} | Close: ${close_price:.2f} | Signal: {signal}")
 
+            # Calculate Current Equity
+            realized_pnl = sum(t["pnl"] for t in self.trades)
+            unrealized_pnl = 0
+            if self.position is not None:
+                unrealized_pnl = (close_price - self.position['entry_price']) * self.position['qty']
+            current_equity = self.starting_cash + realized_pnl + unrealized_pnl
+            daily_pnl = realized_pnl + unrealized_pnl
+
             # Execute trades
-            if signal == "buy" and self.position is None:
+            if signal == "buy" and self.position is None and self.position_manager.can_open_position(current_equity, daily_pnl):
                 # Calculate position size based on stop loss distance
                 stop_loss_distance = close_price * self.position_manager.config.stop_loss_pct
                 qty = self.position_manager.calculate_position_size(self.starting_cash, stop_loss_distance)
@@ -107,6 +136,12 @@ class BacktestEngine:
                 print(f"-> EXIT LONG @ ${close_price:.2f} | P&L: {pnl:.2f}")
                 self.position_manager.close_position(symbol)
                 self.position = None
+                
+            self.equity_curve.append({
+                "timestamp": timestamp,
+                "equity": current_equity
+            })
+        
         print(f"\nBacktest complete! Processed {len(bars)} bars")
         print(f"Total trades: {len(self.trades)}")
 
@@ -134,6 +169,7 @@ class BacktestEngine:
             starting_cash=self.starting_cash,
             trades=self.trades,
             bars_processed=len(bars),
+            equity_curve=self.equity_curve
         )
         result.print_summary()
 

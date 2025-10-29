@@ -2,7 +2,7 @@
 TRADING SYSTEM PROJECT - PLAN & PROGRESS
 ================================================================================
 Generated: October 17, 2025
-Last Updated: October 20, 2025, 8:00 AM EDT
+Last Updated: October 21, 2025, 10:00 AM EDT
 
 ================================================================================
 PART 1: WHAT WE'VE BUILT SO FAR
@@ -55,17 +55,18 @@ COMPLETED COMPONENTS:
 │       ├── Uses data_provider for live execution
 │       └── Accepts optional bars DataFrame for backtesting
 │
-├── Backtesting Engine ✓ COMPLETE
+├── Backtesting Engine ✓ PHASE 1 COMPLETE
 │   ├── BacktestEngine (src/backtesting/backtest_engine.py)
-│   │   ├── __init__(strategy, broker, data_provider, starting_cash)
+│   │   ├── __init__(strategy, broker, data_provider, starting_cash, risk_config)
 │   │   ├── run(symbol, days_back, timeframe) - Main execution loop
 │   │   ├── Bar-by-bar processing with no future data peeking
-│   │   └── Trade tracking (entry/exit prices, P&L)
+│   │   ├── Trade tracking (entry/exit prices, P&L)
+│   │   └── Position tracking (open/close with stop loss/take profit)
 │   │
 │   ├── BacktestResult (src/backtesting/backtest_result.py)
 │   │   ├── total_trades, total_pnl, return_pct
 │   │   ├── win_rate, num_wins, num_losses
-│   │   ├── avg_win, avg_loss
+│   │   ├── avg_win, avg_loss, max_drawdown
 │   │   ├── summary() - Return all metrics as dict
 │   │   └── print_summary() - Pretty print results
 │   │
@@ -73,6 +74,31 @@ COMPLETED COMPONENTS:
 │       ├── Run backtests on multiple symbols
 │       ├── Compare results across different symbols
 │       └── Easy to extend with new strategies
+│
+├── Position Sizing & Risk Management ✓ PHASE 2 COMPLETE
+│   ├── RiskConfig (src/portfolio/risk_config.py)
+│   │   ├── risk_per_trade (2% of equity per trade)
+│   │   ├── stop_loss_pct (5% below entry)
+│   │   ├── take_profit_pct (10% above entry)
+│   │   ├── max_position_size (100 shares max)
+│   │   ├── max_positions_open (3 concurrent trades)
+│   │   └── max_daily_loss_pct (5% of daily equity)
+│   │
+│   ├── PositionManager (src/portfolio/position_manager.py)
+│   │   ├── calculate_position_size() - Risk-based position sizing
+│   │   ├── open_position() - Track new positions with stops/targets
+│   │   ├── check_position_exit() - Detect stop loss / take profit hits
+│   │   ├── close_position() - Remove closed positions
+│   │   ├── can_open_position() - Check position/daily loss limits
+│   │   └── get_num_open_positions() - Current position count
+│   │
+│   └── BacktestEngine Integration
+│       ├── Variable position sizing based on risk
+│       ├── Stop loss / take profit automatic exits
+│       ├── Daily loss limit enforcement
+│       ├── Max position limit enforcement
+│       ├── Exit reason tracking (stop_loss, take_profit, signal)
+│       └── Max drawdown calculation
 │
 ├── Main Application
 │   └── src/main.py
@@ -97,6 +123,10 @@ COMPLETED COMPONENTS:
     │   │   ├── __init__.py
     │   │   ├── backtest_engine.py
     │   │   └── backtest_result.py
+    │   ├── portfolio/
+    │   │   ├── __init__.py
+    │   │   ├── risk_config.py
+    │   │   └── position_manager.py
     │   └── main.py
     │
     ├── tests/
@@ -117,6 +147,7 @@ KEY ARCHITECTURE DECISIONS:
 - Bar-by-bar backtesting prevents look-ahead bias
 - Strategy-agnostic BacktestEngine works with any strategy
 - Engine code vs test code separated (reusable vs specific use cases)
+- Position sizing first, then execution (risk-first approach)
 
 TESTING DONE:
 ✓ Stock historical data retrieval
@@ -125,18 +156,24 @@ TESTING DONE:
 ✓ Stock real-time WebSocket (during market hours)
 ✓ Crypto real-time WebSocket (24/7)
 ✓ Account summary retrieval
-✓ Position management
-✓ Backtesting on multiple symbols (AAPL, MSFT, NVDA, BMNR)
+✓ Position management with risk sizing
+✓ Backtesting on multiple symbols (AAPL, MSFT, NVDA, BMNR, VUG, IREN)
 ✓ Trade tracking and P&L calculation
-✓ Metrics calculation (win rate, average win/loss, return %)
+✓ Metrics calculation (win rate, average win/loss, return %, max drawdown)
+✓ Stop loss / take profit automatic exits
+✓ Position limit enforcement
+✓ Daily loss limit enforcement
 
-KNOWN LIMITATIONS:
-- Real-time stock data only during market hours (9:30 AM - 4:00 PM ET)
-- Crypto streams 24/7 but on sandbox may have limited data
-- Strategy executes 1 share at a time (will fix in Phase 2)
-- No stop losses or profit targets yet (will fix in Phase 2)
-- Basic metrics only (no Sharpe ratio or max drawdown yet)
-- No position sizing based on account equity yet
+CURRENT LIMITATIONS (will be addressed):
+- No slippage or commissions in backtest (unrealistic)
+- All backtest results are in-sample (risk of overfitting)
+- Position sizing doesn't account for volatility (ATR)
+- No detection of market regime (trending vs ranging)
+- Only daily bars used (missing intraday opportunities)
+- No portfolio-level correlation checks
+- No liquidity/volume checks before entering
+- No walk-forward testing (train/test on different periods)
+- Small sample size (need 1000+ trades to validate edge)
 
 ================================================================================
 PART 2: THE PLAN GOING FORWARD
@@ -146,91 +183,51 @@ PHASE 1: BACKTESTING ENGINE ✓ COMPLETE
 ======================================
 Status: FINISHED
 
+Deliverable: Functional backtesting system with bar-by-bar processing ✓
+
+
+PHASE 2: POSITION SIZING & RISK MANAGEMENT ✓ COMPLETE
+======================================================
+Status: FINISHED
+
+Deliverable: Risk-adjusted position sizing with stops/targets/limits ✓
+
 What was built:
-✓ BacktestEngine with bar-by-bar processing
-✓ BacktestResult with core metrics
-✓ Test script for running multiple backtests
-✓ SimpleSMA strategy updated to support backtesting
-✓ No look-ahead bias (only bars up to current point)
-
-What was NOT built (for future):
-- Sharpe ratio calculation
-- Max drawdown calculation
-- Profit factor
-- Consecutive wins/losses
-- CSV/JSON export
-
-Deliverable: Functional backtesting system for SimpleSMA ✓
+✓ RiskConfig with fully configurable parameters
+✓ PositionManager with position tracking
+✓ Variable position sizing based on risk
+✓ Stop loss / take profit automatic triggers
+✓ Daily loss limits
+✓ Max position limits
+✓ BacktestEngine integration
+✓ Exit reason tracking
 
 
-PHASE 2: POSITION SIZING & RISK MANAGEMENT (NEXT - PRIORITY)
-==============================================================
-Goal: Trade appropriate position sizes based on account equity + add safety limits
-
-Why this is critical:
-- Currently trades 1 share (hardcoded) - not scalable
-- Backtesting shows strategy works, but need proper risk limits before live
-- No stop losses = unlimited downside
-- Foundation for Phase 3 (automated trading loop)
-
-Tasks:
-1. Create src/portfolio/ directory
-   ├── position_manager.py - Calculate position size
-   ├── risk_config.py - Risk parameters per strategy
-   └── __init__.py
-
-2. RiskConfig class
-   ├── risk_per_trade (e.g., 2% of equity per trade)
-   ├── max_daily_loss (e.g., 5% of daily equity)
-   ├── max_position_size (e.g., max qty per trade)
-   ├── max_positions_open (e.g., 3 concurrent trades)
-   ├── stop_loss_pct (e.g., 5% below entry)
-   └── take_profit_pct (e.g., 10% above entry)
-
-3. PositionManager class
-   ├── calculate_position_size(account_equity, signal, stop_loss_distance)
-   ├── check_daily_loss_limit(current_pnl)
-   ├── check_position_limit(current_positions)
-   ├── get_current_exposure()
-   └── can_trade(signal) - Check if trade is allowed
-
-4. Update BacktestEngine
-   ├── Add position_manager to __init__
-   ├── Use calculate_position_size() for each trade
-   ├── Track max drawdown
-   ├── Implement stop losses and profit targets
-   └── Update BacktestResult with new metrics
-
-5. Update SimpleSMA.execute_trade()
-   ├── Accept position_manager parameter
-   ├── Use calculate_position_size() instead of hardcoded qty
-   ├── Implement stop loss/take profit orders
-
-6. Backtest with position sizing
-   ├── Run backtest on SimpleSMA with 2% risk per trade
-   ├── Compare results: 1 share vs risk-based sizing
-   ├── Verify stop losses work correctly
-
-Deliverable: SimpleSMA trades risk-adjusted position sizes with stop losses
-
-
-PHASE 3: TRADING LOOP ORCHESTRATOR
-===================================
+PHASE 3: TRADING LOOP ORCHESTRATOR (NEXT - CURRENT FOCUS)
+==========================================================
 Goal: Systematically run strategies on a schedule during market hours
+
+Why this matters:
+- Takes backtesting offline
+- First step toward automation
+- Can test on real/paper trading
+- Foundation for live deployment
+- Identifies issues before real money
 
 Tasks:
 1. Create src/engine/ directory
-   ├── trading_engine.py
-   ├── trade_logger.py
-   ├── scheduler.py
+   ├── trading_engine.py - Main orchestrator
+   ├── trade_logger.py - Log all trades to CSV
+   ├── scheduler.py - Handle timing/market hours
    └── __init__.py
 
 2. TradingEngine class
-   ├── add_strategy(symbol, strategy, interval, risk_config)
+   ├── add_strategy(symbol, strategy, risk_config, interval)
    ├── start() - Main event loop (non-blocking)
    ├── _run_strategy_cycle() - Execute all strategies
    ├── _should_run_trade(symbol) - Check if market is open
-   └── stop()
+   ├── stop() - Graceful shutdown
+   └── get_status() - Return current positions/P&L
 
 3. Scheduler
    ├── Run strategies every N seconds/minutes/hours
@@ -241,9 +238,11 @@ Tasks:
 
 4. TradeLogger
    ├── Log all trades (entry/exit) to CSV
-   ├── Track entry/exit prices, qty, P&L
+   ├── Track entry/exit prices, qty, P&L, exit_reason
    ├── Daily P&L summary
    ├── Store in /logs/trades_{symbol}_{date}.csv
+   ├── Append mode (never lose data)
+   └── JSON summary of daily performance
 
 5. Integration with backtesting
    ├── Use same SimpleSMA in backtest and live
@@ -253,129 +252,275 @@ Tasks:
 Deliverable: Run SimpleSMA on 3 symbols every 5 minutes during market hours
 
 
-PHASE 4: MORE STRATEGIES
-========================
-Goal: Diversify signal sources for better opportunity detection
+PHASE 4: PRODUCTION READINESS (CRITICAL BEFORE REAL MONEY)
+===========================================================
+Goal: Make backtester realistic so results are trustworthy
 
-Strategies to build:
+Why this is critical:
+- Backtests show 100% win rate (clearly unrealistic)
+- Need to verify edge is real, not overfitted
+- Real trading has costs (slippage, commissions)
+- Results depend heavily on parameters (SMA 5/20 might not work always)
+
+Sub-tasks (in priority order):
+
+4.1 Add Slippage & Commissions
+├── Slippage: 0.05-0.2% per trade (move prices against you)
+├── Commission: $5 per round trip
+├── Update BacktestResult to show net P&L after costs
+├── Re-run SimpleSMA backtest to see realistic returns
+└── Expected impact: May eliminate most profits (harsh reality)
+
+4.2 Walk-Forward Testing (Out-of-Sample Validation)
+├── Split data: 60% train (2022-2023), 40% test (2024)
+├── Optimize on train data, test on unseen test data
+├── If train profit >> test profit = overfitted
+├── Test on multiple time periods (2020-2021, 2021-2022, 2023-2024)
+└── Only deploy if performance consistent across periods
+
+4.3 Multi-Symbol Validation
+├── Test SimpleSMA on 20+ different stocks
+├── Track which symbols are profitable
+├── Identify if strategy has real edge or just lucky
+├── Expected: Some work, some don't (normal)
+└── Only trade symbols that show consistent profit
+
+4.4 Volatility-Adjusted Position Sizing
+├── Current: Fixed 2% per trade (same for $10 and $500 stock)
+├── Better: Size based on ATR (Average True Range)
+├── High volatility = smaller position, low volatility = larger
+├── Prevents overexposure in choppy markets
+└── More consistent risk across symbols
+
+4.5 Regime Detection
+├── Detect if market is trending, ranging, or choppy
+├── SMA works in trending markets, gets destroyed in ranging
+├── Use volatility or ADX to detect regime
+├── Only trade in favorable regime, skip in choppy markets
+└── Major improvement in risk-adjusted returns
+
+Phase 4.1-4.5 must be complete before real money trading!
+
+
+PHASE 5: ADVANCED BACKTESTING FEATURES
+=======================================
+Goal: More robust analysis and parameter optimization
+
+Tasks:
+5.1 Sharpe Ratio & Advanced Metrics
+├── Calculate Sharpe ratio (risk-adjusted returns)
+├── Calculate Sortino ratio (downside risk only)
+├── Calculate profit factor (gross profit / gross loss)
+├── Track consecutive wins/losses
+├── Calculate recovery factor
+└── Add to BacktestResult.print_summary()
+
+5.2 Parameter Optimization
+├── Test SMA with different parameters (5/10, 5/15, 10/20, etc.)
+├── Find best-performing parameters on historical data
+├── WARNING: Overfitting risk! Optimize only on train data
+├── Test best parameters on walk-forward test data
+└── Only use if test results still good
+
+5.3 Monte Carlo Simulation
+├── Randomly shuffle trade order, recalculate returns
+├── If results are consistent after shuffling = real edge
+├── If results fall apart = likely overfitted
+└── Validates robustness of strategy
+
+5.4 Equity Curve Analysis
+├── Plot equity curve over time
+├── Identify periods of drawdown
+├── Compare vs buy-and-hold benchmark
+├── Export to /charts/equity_curve_{symbol}.png
+└── Visual confirmation of performance
+
+
+PHASE 6: MORE STRATEGIES
+========================
+Goal: Diversify signal sources AFTER validating SimpleSMA edge
+
+Note: Only build new strategies AFTER Phase 4 is complete!
+- SimpleSMA must pass slippage/commission/walk-forward tests
+- Need to identify real edge first
+- Then replicate that edge in other strategies
+
+Strategies to build (IF SimpleSMA proves profitable):
 1. RSI Strategy (Relative Strength Index)
    ├── Parameters: period=14, overbought=70, oversold=30
    ├── Signal: Buy when oversold, sell when overbought
    ├── Use case: Mean reversion in ranging markets
+   ├── Must pass Phase 4 tests
 
 2. MACD Strategy (Moving Average Convergence Divergence)
    ├── Parameters: fast=12, slow=26, signal=9
    ├── Signal: Buy on signal line crossover, sell on opposite
    ├── Use case: Trend following
+   ├── Must pass Phase 4 tests
 
 3. Mean Reversion Strategy
    ├── Parameters: lookback=20, threshold=1.5 std devs
    ├── Signal: Buy when price < (SMA - threshold), sell on reversion
    ├── Use case: Contrarian trading in stable markets
+   ├── Must pass Phase 4 tests
 
-4. Momentum Strategy
-   ├── Parameters: period=20, threshold=1%
-   ├── Signal: Buy on uptrend acceleration, sell on deceleration
-   ├── Use case: Trend acceleration detection
+4. Volatility-Based Strategy
+   ├── Use ATR to detect breakouts
+   ├── Parameters: period=14, breakout_threshold=2.0
+   ├── Signal: Buy on breakout above ATR, sell on reversal
+   ├── Use case: Momentum in volatile markets
+   ├── Must pass Phase 4 tests
 
 Each strategy:
 ├── Inherits from BaseStrategy
 ├── evaluate_signal(bars=None) for live/backtest
 ├── execute_trade(signal) with position_manager
-├── Configurable parameters
+├── Fully configurable parameters
 ├── Works with backtesting engine
-└── Works with trading loop
+├── Works with trading loop
+└── MUST pass Phase 4 validation before deployment
 
-Deliverable: 4 new strategies tested on 60-day backtest with risk management
+
+PHASE 7: STRATEGY ENSEMBLE (OPTIONAL)
+======================================
+Goal: Combine multiple strategies for better robustness
+
+Only after Phase 6 completes:
+- Voting system: Execute trade only if 2+ strategies agree
+- Weighted voting: Different weight per strategy based on recent performance
+- Risk management: Reduce position size if signals conflict
+- A/B testing: Track individual strategy performance
+- Dynamic selection: Only use strategies profitable in current market regime
 
 
-PHASE 5: METRICS & PERFORMANCE LOGGING
-=======================================
-Goal: Track strategy performance over time and identify winners
+PHASE 8: PERFORMANCE MONITORING & ALERTS (LIVE TRADING)
+=======================================================
+Goal: Monitor live trading performance and alert on issues
 
 Tasks:
-1. Create src/metrics/ directory
-   ├── performance_tracker.py
-   ├── report_generator.py
-   ├── __init__.py
+├── Real-time P&L tracking per symbol
+├── Daily/weekly/monthly performance summaries
+├── Alert if drawdown exceeds threshold
+├── Alert if daily loss limit hit
+├── Alert if strategy performance degrades
+├── Email/SMS notifications
+├── Dashboard showing live positions
+└── Automatic trade logging to database
 
-2. BacktestResult enhancements
-   ├── Add Sharpe ratio calculation
-   ├── Add max drawdown / drawdown timeline
-   ├── Add profit factor (gross profit / gross loss)
-   ├── Add consecutive wins/losses
+PHASE 3: TRADING LOOP ORCHESTRATOR (NEXT - CURRENT FOCUS)
+==========================================================
+Goal: First real automated trading on Alpaca paper trading account
 
-3. PerformanceTracker (for live trading)
-   ├── Track daily/weekly/monthly returns
-   ├── Calculate rolling Sharpe ratio (30 days)
-   ├── Track drawdown from peak
-   ├── Identify streaks (win/loss consecutive trades)
-   ├── Store in /logs/performance_{date}.json
+Why this matters:
+- First time using AlpacaBroker.buy() / sell() in production
+- Tests if strategy works in real market conditions
+- Identifies integration issues before real money
+- Compares paper results vs backtest accuracy
+- Foundation for live deployment
 
-4. ReportGenerator
-   ├── Compare backtest vs live performance
-   ├── Generate summary tables (all strategies)
-   ├── Identify best/worst performing strategies
-   ├── Export results to CSV/JSON
+Key: This trades REAL ORDERS on Alpaca PAPER TRADING account
+- No real money at risk
+- Real order execution and fills
+- Real delays and rejections can happen
+- First test of end-to-end system
 
-Deliverable: Performance dashboard showing which strategies are winning
+Tasks:
+1. Create src/engine/ directory
+   ├── trading_engine.py - Main orchestrator
+   ├── trade_logger.py - Log all trades to CSV
+   ├── scheduler.py - Handle timing/market hours
+   └── __init__.py
 
+2. TradingEngine class
+   ├── add_strategy(symbol, strategy, risk_config, interval)
+   ├── start() - Main event loop (connects to AlpacaBroker)
+   ├── _run_strategy_cycle() - Execute all strategies
+   ├── _should_run_trade(symbol) - Check if market is open
+   ├── stop() - Graceful shutdown
+   └── get_status() - Return current positions/P&L
 
-PHASE 6: ADVANCED FEATURES (OPTIONAL)
-======================================
-- Multi-symbol portfolio optimization
-- Strategy ensemble/voting system (combine signals)
-- Machine learning signal generation
-- Options trading support
-- Futures trading support
-- Live alerts/notifications (email/SMS)
-- Web dashboard (Flask/React)
-- Walk-forward analysis for robust backtesting
+3. Scheduler
+   ├── Run strategies every N seconds/minutes/hours
+   ├── Skip outside market hours for stocks (9:30 AM - 4:00 PM ET)
+   ├── Always run for crypto (24/7)
+   └── Log execution times
+
+4. TradeLogger
+   ├── Log all trades (entry/exit) to CSV
+   ├── Store in /logs/trades_{symbol}_{date}.csv
+   ├── Daily P&L summary
+   └── JSON performance metrics
+
+5. Alpaca Integration
+   ├── TradingEngine uses AlpacaBroker
+   ├── broker.buy() and broker.sell() execute on paper account
+   ├── Track real fills and rejections
+   ├── Handle order errors gracefully
+   └── Paper trading account: $100,000 (default)
+
+Deliverable: 
+- SimpleSMA trading automatically during market hours on paper money
+- All trades logged to /logs/
+- Real order execution and fills
+- Real-time position tracking
+- Daily P&L summary
+- Compare paper results vs backtest
+
+Timeline: 1-2 sessions
+
+THEN: Phase 4 (Production Readiness) - CRITICAL before real money!
 
 
 ================================================================================
-PART 3: IMMEDIATE NEXT STEPS (NEXT SESSION)
+PART 4: CRITICAL PATH TO PROFITABILITY
 ================================================================================
 
-Priority: PHASE 2 - Position Sizing & Risk Management
+DO NOT SKIP THESE STEPS:
 
-1. Create /src/portfolio/ directory with RiskConfig and PositionManager
-2. Implement calculate_position_size() logic (Kelly criterion or fixed %)
-3. Add stop loss tracking to BacktestEngine
-4. Add max drawdown calculation to BacktestResult
-5. Run backtest with position sizing on SimpleSMA
-6. Compare results: 1 share vs 2% risk per trade
+✓ Phase 1: Backtesting framework (DONE)
+✓ Phase 2: Risk management (DONE)
+→ Phase 3: Automation framework (NEXT)
+→ Phase 4: Production validation (CRITICAL - DO NOT SKIP)
+  ├─ 4.1 Add slippage/commissions
+  ├─ 4.2 Walk-forward testing
+  ├─ 4.3 Multi-symbol validation
+  └─ 4.4 Volatility adjustment
+→ Only deploy after Phase 4 passes!
 
-Expected output:
-- SimpleSMA backtest with variable position sizing
-- Stop losses automatically triggered
-- Max drawdown metric calculated
-- Compare equity curves: fixed vs risk-based sizing
+If you skip Phase 4:
+- High chance of losses in real trading
+- Backtest results are unrealistic
+- Overfitting will destroy profitability
+- "100% win rate" backtest = red flag for overfitting
 
-Timeline: Should be complete in next session
+Invest time in Phase 4 first. Best money spent.
 
 
 ================================================================================
-PART 4: DEPENDENCIES & REQUIREMENTS
+PART 5: DEPENDENCIES & REQUIREMENTS
 ================================================================================
 
-Current requirements.txt (to verify):
+Current requirements.txt:
 - alpaca-py (for Alpaca API)
 - pandas (data manipulation)
 - numpy (numerical computing)
 - python-dotenv (environment variables)
 
-Will need to add for Phase 2+:
-- scipy (for statistical calculations - Sharpe ratio, max drawdown)
+Will need to add for Phase 3+:
 - pytz (timezone handling - market hours detection)
+- schedule (for task scheduling)
+
+Will need to add for Phase 4+:
+- scipy (for statistical calculations)
 
 Optional (Phase 5+):
 - matplotlib or plotly (for charts and reports)
 - pytest (for unit testing)
+- scikit-learn (for Monte Carlo simulation)
 
 
 ================================================================================
-PART 5: ENVIRONMENT SETUP REQUIRED
+PART 6: ENVIRONMENT SETUP REQUIRED
 ================================================================================
 
 .env file must contain:
@@ -383,16 +528,14 @@ ALPACA_API_KEY=your_api_key
 ALPACA_API_SECRET=your_secret
 ALPACA_BASE_URL=https://paper-api.alpaca.markets/v2
 
-For paper trading (recommended for development)
-
 Directory structure to create:
-/logs/ - Trade execution logs
+/logs/ - Trade execution logs (created by TradeLogger)
 /results/ - Backtest results
 /charts/ - Performance charts (Phase 5+)
 
 
 ================================================================================
-PART 6: FILE LOCATIONS REFERENCE
+PART 7: FILE LOCATIONS REFERENCE
 ================================================================================
 
 Core Logic:
@@ -400,7 +543,7 @@ Core Logic:
 - Strategies: /src/strategies/base_strategy.py, simple_sma.py
 - Data: /src/data/stock_data_provider.py, crypto_data_provider.py
 - Broker: /src/brokers/alpaca_broker.py, alpaca_client.py
-- Portfolio (Phase 2): /src/portfolio/position_manager.py, risk_config.py
+- Portfolio: /src/portfolio/position_manager.py, risk_config.py
 - Trading Engine (Phase 3): /src/engine/trading_engine.py, scheduler.py, trade_logger.py
 - Metrics (Phase 5): /src/metrics/performance_tracker.py, report_generator.py
 
@@ -411,61 +554,95 @@ Tests:
 
 Outputs:
 - Trading logs: /logs/trades_{symbol}_{date}.csv
-- Performance logs: /logs/performance_{date}.json
+- Daily summary: /logs/daily_summary_{date}.json
 - Backtest results: /results/backtest_{symbol}_{date}.json
 - Charts: /charts/
 
 
 ================================================================================
-PART 7: ARCHITECTURE SUMMARY
+PART 8: ARCHITECTURE SUMMARY
 ================================================================================
 
 Data Flow:
-1. Data Providers (StockDataProvider, CryptoDataProvider)
-   ↓
-2. Strategies (SimpleSMA, future: RSI, MACD, etc.)
-   ├─→ Backtesting (BacktestEngine) → Results
-   └─→ Live Trading (TradingEngine) → TradeLogger
 
-3. Position Sizing (PositionManager) ensures risk limits
-   ↓
-4. Broker (AlpacaBroker) executes orders
-   ↓
-5. Metrics & Logging track performance
+Backtesting:
+Data → BacktestEngine → Strategy → PositionManager → BacktestResult
 
-Design principles:
-- Strategy-agnostic: Any strategy works with engine
-- Risk-first: Position sizing before execution
-- Data-driven: Backtest before live
-- Modular: Each component independent
-- Testable: Easy to add new strategies/features
+Live Trading (Phase 3+):
+Data → TradingEngine → Strategy → PositionManager → Broker → TradeLogger
+
+Production Validation (Phase 4):
+HistoricalData → BacktestEngine (with slippage) → Compare WalkForward → Validate
+
+Deployment Decision:
+- If Phase 4 passes: Deploy to live
+- If Phase 4 fails: Optimize parameters or try new strategy
 
 
 ================================================================================
-PART 8: NOTES FOR FUTURE CONTEXT WINDOWS
+PART 9: CRITICAL SUCCESS FACTORS
+================================================================================
+
+What will make this profitable:
+
+1. Realistic backtesting (Phase 4)
+   - With slippage/commissions
+   - Walk-forward validation
+   - Multiple timeframes
+   - Only deploy if consistent
+
+2. Risk management (Phase 2 - DONE)
+   - Position sizing based on risk
+   - Stop losses mandatory
+   - Daily loss limits
+   - Max position limits
+
+3. Discipline
+   - Follow the risk rules
+   - Don't override stops
+   - Don't add more positions than allowed
+   - Log everything
+
+4. Patience
+   - Need 100+ trades minimum to validate edge
+   - Some months will be losing (normal)
+   - Only evaluate after 6 months of paper trading
+   - Don't go live until confident
+
+5. Continuous monitoring (Phase 8)
+   - Track performance vs backtest
+   - Alert on degradation
+   - Adjust parameters if needed
+   - Stay alert for regime changes
+
+
+================================================================================
+PART 10: NOTES FOR FUTURE CONTEXT WINDOWS
 ================================================================================
 
 If context runs out:
-1. Read this file to understand current state
-2. We just completed PHASE 1 (Backtesting)
-3. Next: PHASE 2 (Position Sizing & Risk Management)
-4. See PART 3 for next immediate steps
-5. All source code in /src/ - check file structure in PART 6
+1. Read PART 2 to understand current phase
+2. Currently on PHASE 3 (Trading Loop Orchestrator)
+3. PHASE 4 is mandatory before real money trading
+4. All source code in /src/ - check PART 7
+5. Key files:
+   - Backtest: src/backtesting/backtest_engine.py
+   - Risk: src/portfolio/position_manager.py
+   - Strategy: src/strategies/simple_sma.py
+   - Trading (Phase 3): src/engine/trading_engine.py
 
 Key commands:
 - Run backtest: python tests/backtest/backtest_simple_sma.py
 - Run live test: python src/main.py
 - Run live stream: python src/main.py realtime
+- Start trading engine (Phase 3): python -m src.engine.trading_engine
 
-Quick reference:
-- BacktestEngine: Takes strategy, runs historical bars, returns results
-- SimpleSMA: Evaluates SMA crossover, can accept bars for backtesting
-- StockDataProvider: Historical REST + live WebSocket for stocks
-- CryptoDataProvider: Same interface, works 24/7
-- AlpacaBroker: Paper trading by default (safe)
+Progress summary:
+✓ Phase 1: Backtesting - COMPLETE
+✓ Phase 2: Risk Management - COMPLETE
+→ Phase 3: Trading Loop - IN PROGRESS
+→ Phase 4: Production Ready - NEXT (critical!)
+→ Phase 5+: Advanced features - LATER
 
-Common issues & solutions:
-- Import errors: Run from project root, conftest.py handles paths
-- Real-time no quotes: Only works 9:30 AM - 4:00 PM ET for stocks
-- Crypto data: Available 24/7, sandbox may have limited history
-- Module not found: Check __init__.py files exist in each directory
+Current status: Solid foundation built. Risk management in place.
+Ready to automate. Must validate before real money.
