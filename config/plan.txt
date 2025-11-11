@@ -156,104 +156,137 @@ Deliverable: SimpleSMA running stable, architecture validated, ready for new str
 
 PHASE 5: BUILD ADDITIONAL STRATEGIES (LOCAL + PARALLEL)
 ========================================================
-Goal: Build and validate multiple strategies locally
-      Deploy to cloud once SimpleSMA is validated
-      Run all strategies together in Phase 6
+Goal: Build and validate multiple strategies locally while SimpleSMA runs in paper mode.
+Deliverables: 3 – 4 fully tested strategies ready for ensemble deployment.
 
-Why this matters:
-- Single strategy = high risk, likely luck
-- Multiple strategies = diversified edge
-- Each strategy tested independently
-- Later combine via ensemble voting
+Current Focus Areas (November 2025)
+------------------------------------
+✔ Begin immediate work on RSI and MACD strategies locally.  
+✔ Extend BacktestEngine to include slippage and commissions.  
+✔ Build a local /results directory to store CSV summaries of each strategy.  
+✔ Plan lightweight persistence structure (JSON or broker-based recovery) for Phase 7.4.  
 
-Strategies to build (in parallel, locally):
-
+Active Tasks
+------------
 5.1 RSI Strategy (Relative Strength Index)
-├── Create src/strategies/rsi_strategy.py
-├── Inherits from BaseStrategy
-├── Parameters: period=14, overbought=70, oversold=30
-├── Signal: Buy when oversold, sell when overbought
-├── Backtest locally with realistic slippage/fees
-└── Paper trade on cloud (Phase 6+)
+├── File: src/strategies/rsi_strategy.py  
+├── Parameters: period = 14, overbought = 70, oversold = 30  
+├── Signal: Buy when RSI < oversold, sell when > overbought  
+├── Backtest: tests/backtest/backtest_rsi.py  
+├── Output: /results/backtest_rsi.csv  
+└── Validate mean‑reversion edge on sideways assets (e.g., XRP, AAPL).
 
 5.2 MACD Strategy (Moving Average Convergence Divergence)
-├── Create src/strategies/macd_strategy.py
-├── Inherits from BaseStrategy
-├── Parameters: fast=12, slow=26, signal=9
-├── Signal: Buy on signal line crossover, sell on opposite
-├── Backtest locally with realistic slippage/fees
-└── Paper trade on cloud (Phase 6+)
+├── File: src/strategies/macd_strategy.py  
+├── Parameters: fast = 12, slow = 26, signal = 9  
+├── Signal: Buy on bullish crossover, sell on bearish crossover  
+├── Backtest: tests/backtest/backtest_macd.py  
+└── Trend‑following validation against momentum markets.
 
 5.3 Mean Reversion Strategy
-├── Create src/strategies/mean_reversion_strategy.py
-├── Inherits from BaseStrategy
-├── Parameters: lookback=20, threshold=1.5 std devs
-├── Signal: Buy when price < (SMA - threshold), sell on reversion
-├── Backtest locally with realistic slippage/fees
-└── Paper trade on cloud (Phase 6+)
+├── File: src/strategies/mean_reversion_strategy.py  
+├── Parameters: lookback = 20, threshold = 1.5 × std dev  
+├── Logic: Buy when price < (SMA−threshold), sell on reversion to SMA  
+└── Contrast performance vs RSI/MACD for ensemble diversity.
 
-Timeline: 3-4 weeks (parallel with SimpleSMA in cloud - DONE LOCALLY)
-Deliverable: 3-4 new strategies tested locally, ready for Phase 6 cloud deployment
+5.4 Optional Volatility Breakout (ATR‑based)
+— Implement later if time allows.
+
+Local Development Checklist
+---------------------------
+1. Run all new strategies through enhanced BacktestEngine.  
+2. Add CSV reporting of equity curve, P&L, Sharpe ratio.  
+3. Compare results side‑by‑side vs SimpleSMA baseline.  
+4. Store findings in /results/strategy_comparison.csv.  
+5. Design ensemble‑voting logic outline for Phase 6.  
+6. Continue monitoring live SimpleSMA on Oracle instance.
+
+Timeline: ≈ 3 weeks (runs parallel with cloud SimpleSMA test)
 
 PHASE 5.5: ADD SLIPPAGE & COMMISSIONS TO BACKTEST (LOCAL)
 ==========================================================
-Goal: Make backtest realistic so results are trustworthy
+Goal: Make backtests realistic and comparable to paper/live results.
+Status: groundwork started (November 2025)
 
-Why this is critical:
-- Backtests currently show unrealistic returns
-- Real trading has costs (slippage, fees)
-- Need realistic metrics to compare vs paper trading
-- Must validate strategies work AFTER costs
+Immediate Objectives
+--------------------
+✔ Implement 0.05 – 0.20 % slippage per trade (entry + exit).  
+✔ Deduct per‑asset commissions:  
+    ‑ Stocks = \$5 per round trip  
+    ‑ Crypto = 0.25 % taker fee  
+✔ Update BacktestEngine & BacktestResult classes.  
+✔ Record settings in config/backtest_settings.json for reuse.  
+✔ Re‑run backtests for RSI, MACD, Mean Reversion, and SimpleSMA.  
+✔ Save results under /results with timestamped filenames.  
 
-Where this happens: LOCAL ONLY
-- Backtesting is 100% local (historical data analysis)
-- No cloud needed for research/development
-- Only live trading needs cloud
+Deliverable: realistic, cost‑adjusted performance metrics for all strategies.
 
-Tasks:
+PHASE 5.6: DASHBOARD & ANALYTICS MONITOR (LOCAL + CLOUD)
+=========================================================
+Goal: Provide a consolidated real‑time and historical overview of system performance,
+      replacing manual log inspection with a visual dashboard.
 
-5.5.1 Implement Slippage (LOCAL)
-├── Slippage: 0.05-0.2% per trade
-├── Apply to both entry and exit
-├── More slippage for larger orders
-├── Update BacktestEngine
-└── Re-run all strategy backtests locally
+Purpose
+-------
+- Display current status of each running strategy (signal, position, P&L).
+- Visualize historical trade logs, cumulative returns, and drawdown.
+- Track key risk metrics (exposure %, daily loss %, open vs closed positions).
+- Provide a web‑accessible view from the Oracle Cloud instance.
 
-5.5.2 Implement Commissions (LOCAL)
-├── Stocks: $5 per round trip
-├── Crypto: Already handled (0.25% fee)
-├── Deduct from P&L
-├── Update BacktestResult
-└── Re-run all strategy backtests locally
+Scope
+-----
+✔ Phase 5 prototype — build locally or in a Jupyter/Plotly Dash notebook.  
+✔ Phase 6 – 7 — migrate to a lightweight web app served from the cloud VM.
 
-5.5.3 Compare Backtest vs Paper (LOCAL vs CLOUD)
-├── For each strategy:
-│   ├── Backtest return % (local)
-│   ├── Paper trading return % (cloud data)
-│   ├── Backtest win rate (local)
-│   ├── Paper trading win rate (cloud data)
-│   ├── Compare max drawdown
-│   └── If match ±5% = good edge
-├── If backtest >> paper = overfitted
-├── If paper >> backtest = lucky sampling
-└── Only proceed if consistent
+Proposed Architecture
+---------------------
+1. **Data Source**
+   - Pull data from existing `/logs/trades_*.csv` and `broker.get_positions()`.
+   - Optional: cache summary metrics in `/logs/summary_state.json`.
 
-5.5.4 Walk-Forward Validation (LOCAL)
-├── Split data: 60% train, 40% test
-├── Optimize strategy on training data only (local)
-├── Test on hold-out test data (local)
-├── If train profit >> test profit = overfitted
-├── Test on multiple periods (local):
-│   ├── 2020-2021
-│   ├── 2021-2022
-│   ├── 2023-2024
-│   └── 2024-present
-├── Only deploy if consistent across all periods
-└── Repeat for each strategy
+2. **Visualization Layer Options**
+   ├── **Option A – Jupyter Notebook (Phase 5 Local)**
+   │     - Generate plots with matplotlib / plotly.
+   │     - KPIs: Total P&L, Win‑rate, Max Drawdown, Sharpe ratio.
+   │     - Export HTML summaries to /results/reports/.
+   ├── **Option B – Plotly Dash / Streamlit Web App (Phase 6 Cloud)**
+   │     - Runs continuously on the Oracle instance (ports 8501 / 8050).
+   │     - Displays live positions, cumulative equity curve, recent trading log.
+   │     - Automatically refreshes every 60 s.
 
-Timeline: 1-2 weeks (LOCAL ONLY - no cloud cost)
-Deliverable: Realistic backtests, validated strategies ready for cloud
+3. **Core Metrics to Track**
+   - Equity curve by strategy and total portfolio.
+   - Daily and cumulative P&L.
+   - Win rate, average trade duration, average P&L per trade.
+   - Open positions summary.
+   - Rolling Sharpe ratio & volatility.
 
+4. **Implementation Milestones**
+   - Week 1–2 (Parallel with Phase 5 tests):  
+     Prototype analytics notebook locally using trade CSVs.  
+     Generate comparison charts for RSI, MACD, Mean Reversion vs. SimpleSMA.  
+   - Week 3+:  
+     Deploy lightweight Dash / Streamlit app to Oracle Cloud (accessible via SSH tunnel or web).  
+     Add periodic auto‑refresh and error alerts.
+   - Phase 9 upgrade:  
+     Integrate live notifications and richer database‑backed analytics.
+
+Dependencies
+-------------
+- pandas, plotly, streamlit (optional dash)
+- matplotlib (for static graphs)
+- (optional) scikit‑learn for performance statistics
+
+Deliverables
+-------------
+- `notebooks/performance_dashboard.ipynb` (local prototype)  
+- `/dashboard/app.py` (Dash / Streamlit live app)  
+- `/results/daily_report.html` static summary for archived sessions
+
+Outcome
+--------
+✅ One‑click monitoring of system health and performance directly from the cloud VM.
+✅ Serves as groundwork for Phase 9 automatic alerts and visual reporting.
 
 PHASE 6: STRATEGY ENSEMBLE & VOTING (CLOUD DEPLOYMENT)
 ======================================================
