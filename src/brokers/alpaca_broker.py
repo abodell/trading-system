@@ -63,9 +63,20 @@ class AlpacaBroker(BaseBroker):
             for p in positions
         ]
 
-    def buy(self, symbol: str, qty: int):
+    def buy(self, symbol: str, qty: int, latest_price: float):
         # Get the quantity of this symbol's positions before purchase
         self._position_before_order[symbol] = self._get_position_qty(symbol)
+
+        notional_value = qty * latest_price
+        asset_type = "crypto" if self._is_crypto(symbol) else "stock"
+        print(f"[DEBUG] BUY {symbol} ({asset_type}) qty={qty} price={latest_price:.4f} notional=${notional_value:.2f}")
+
+        if self._is_crypto(symbol) and notional_value < 10.0:
+            print(
+                f"Skipping {symbol}: "
+                f"order notional ${notional_value:.2f} below $10 minimum."
+            )
+            return None
 
         order = MarketOrderRequest(
             symbol=self._normalize_symbol(symbol),
@@ -120,7 +131,13 @@ class AlpacaBroker(BaseBroker):
             
             time.sleep(0.2)
         
-        print(f"Order {order_id} not filled within {timeout_seconds}s")
+        print(f"Order {order_id} not filled within {timeout_seconds}s - cancelling.")
+        try:
+            self.client.trading.cancel_order_by_id(order_id)
+            print(f"Order {order_id} cancelled successfully.")
+        except Exception as e:
+            print(f"Failed to cancel unfilled order {order_id}: {e}")
+        
         return self.client.trading.get_order_by_id(order_id)
     
     def get_order_details(self, order_response: Order, symbol: str) -> dict:

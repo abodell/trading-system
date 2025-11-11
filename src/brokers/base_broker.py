@@ -19,7 +19,7 @@ class BaseBroker(ABC):
         pass
 
     @abstractmethod
-    def buy(self, symbol: str, qty: int) -> Any:
+    def buy(self, symbol: str, qty: int, latest_price: float) -> Any:
         """ Place a market buy order. """
         pass
 

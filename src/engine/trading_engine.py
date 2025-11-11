@@ -203,7 +203,7 @@ class TradingEngine:
                     if position_size > 0:
                         # Execute buy
                         print(f"Submitting BUY order for {position_size} shares...")
-                        order_response = self.broker.buy(config.symbol, position_size)
+                        order_response = self.broker.buy(config.symbol, position_size, latest_price)
                         # Get the actual number purchases
                         order_details = self.broker.get_order_details(order_response, config.symbol)
                         filled_qty = order_details['filled_qty']

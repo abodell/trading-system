@@ -25,7 +25,8 @@ crypto_data = CryptoDataProvider(api_key = broker.client.api_key, secret_key = b
 stock_data = StockDataProvider(api_key = broker.client.api_key, secret_key = broker.client.secret_key)
 
 risk_config = RiskConfig(
-    max_position_size=0.05,
+    risk_per_trade=0.02,
+    max_position_size=10,
     stop_loss_pct=0.05,
     take_profit_pct=0.10
 )

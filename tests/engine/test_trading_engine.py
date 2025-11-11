@@ -108,18 +108,18 @@ def test_engine_with_test_strategy():
         risk_per_trade=0.02,
         stop_loss_pct=0.05,
         take_profit_pct=0.10,
-        max_position_size=10
+        max_position_size=5
     )
     position_mgr = PositionManager(risk_config)
     
     strategy = TestStrategy(
         broker=broker,
-        symbol="XRP/USD",
+        symbol="ETH/USD",
         data_provider=crypto_data
     )
     
     engine.add_strategy(
-        symbol="XRP/USD",
+        symbol="ETH/USD",
         strategy=strategy,
         risk_config=risk_config,
         position_manager=position_mgr,
