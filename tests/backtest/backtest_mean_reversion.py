@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -14,4 +15,5 @@ strategy = MeanReversionStrategy(broker, "AAPL", data, lookback = 20, threshold 
 
 engine = BacktestEngine(strategy, broker, data)
 result = engine.run("AAPL", days_back = 365)
+result.to_csv(f"results/backtests/MEAN_REVERSION_AAPL_{datetime.now().date()}.csv")
 result.plot_equity()
