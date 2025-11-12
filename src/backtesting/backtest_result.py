@@ -1,5 +1,7 @@
 from typing import List, Dict
 import pandas as pd
+import os
+import matplotlib.pyplot as plt
 
 class BacktestResult:
     """ Stores and calculates backtest results and metrics """
@@ -107,3 +109,36 @@ class BacktestResult:
         print(f"Win Rate: {s['win_rate']*100:.1f}% ({s['num_wins']}/{s['total_trades']})")
         print(f"Avg Win: ${s['avg_win']:.2f} | Avg Loss: ${s['avg_loss']:.2f}")
         print("="*60 + "\n")
+    
+    def plot_equity(self, save_path: str = None):
+        """ Quick matplotlib plot for equity curve """
+        if not self.equity_curve:
+            print("No equity data to plot.")
+            return
+        
+        eq = [e["equity"] for e in self.equity_curve]
+        plt.figure(figsize=(10, 4))
+        plt.plot(eq, label=f"{self.symbol} Equity", color="tab:blue")
+        plt.title(f"Equity Curve - {self.symbol}")
+        plt.xlabel("Bars")
+        plt.ylabel("Equity ($)")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=150)
+            print(f"Saved equity curve to {save_path}")
+        else:
+            plt.show()
+    
+    def to_csv(self, path: str):
+        """ Save equity curve and trade summary to CSV. """
+        os.makedirs(os.path.dirname(path), exist_ok = True)
+        eq_df = pd.DataFrame(self.equity_curve)
+        eq_df.to_csv(path, index=False)
+        print(F"Equity curve data saved -> {path}")
+
+        summ_path = path.replace(".csv", "_summary.csv")
+        pd.DataFrame([self.summary()]).to_csv(summ_path, index = False)
+        print(f"Summary metrics saved -> {summ_path}")

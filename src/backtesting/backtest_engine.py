@@ -1,10 +1,7 @@
-from datetime import datetime, timedelta, timezone
 from typing import Optional
-import pandas as pd
-import sys
 from pathlib import Path
+import sys
 
-# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.strategies.base_strategy import BaseStrategy
@@ -16,7 +13,8 @@ from src.backtesting.backtest_result import BacktestResult
 
 class BacktestEngine:
     """
-    Backtesting engine that replays historical data and executes strategies.
+    Simplified, standardized backtesting engine.
+    Can run any BaseStrategy subclass over historical bars
     """
 
     def __init__(
@@ -24,169 +22,111 @@ class BacktestEngine:
             strategy: BaseStrategy,
             broker: BaseBroker,
             data_provider: BaseDataProvider,
-            starting_cash: float = 100000.0,
-            risk_config: RiskConfig = None,
+            starting_cash: float = 10_000.0,
+            risk_config: Optional[RiskConfig] = None,
+            verbose: bool = False,
     ):
         self.strategy = strategy
         self.broker = broker
         self.data_provider = data_provider
         self.starting_cash = starting_cash
         self.current_cash = starting_cash
+        self.verbose = verbose
 
-        # Position management
-        if risk_config is None:
-            risk_config = RiskConfig() # Default
-        self.position_manager = PositionManager(risk_config)
+        self.position_manager = PositionManager(risk_config or RiskConfig())
 
-        # Tracking
         self.trades = []
         self.equity_curve = []
-        self.position = None # Track open position: {"entry_price", "entry_date", "qty"}
+        self.position = 0.0
+        self.entry_price = None
+        self.entry_time = None
     
     def run(
             self,
             symbol: str,
-            days_back: int = 60,
+            days_back: int = 365,
             timeframe: str = "1Day",
-    ) -> dict:
-        """
-        Run backtest on historical data.
-
-        Args:
-            symbol: Trading symbol (e.g., "AAPL")
-            days_back: How many days of history to backtest
-            timeframe: Bar timeframe ("1Min", "1Hour", "1Day", etc)
+            limit: int = 1000,
+    ) -> BacktestResult:
+        """ Run a full backtest for a given symbol. """
+        print(f"\n=== Backtest Start: {symbol} | {days_back} days @ {timeframe} ===")
         
-        Returns:
-            Dictionary with backtest results
-        """
-        print(f"Starting backtest: {symbol} ({days_back} days back)")
-
-        # Fetch historical data
         bars = self.data_provider.get_bars(
-            symbol, timeframe, limit = 1000, days_back = days_back
+            symbol = symbol, timeframe = timeframe, limit = limit, days_back = days_back
         )
+        if bars is None or bars.empty:
+            print("No historical bars found.")
+            return BacktestResult(symbol, self.starting_cash, [], 0, [])
+    
+        bars = bars.sort_index()
+        cash = self.starting_cash
+        position_qty = 0.0
+        trades = []
+        equity_curve = []
 
-        if bars.empty:
-            print(f"No data available for {symbol}")
-            return {}
-        
-        print(f"Fetched {len(bars)} bars")
+        for i in range(20, len(bars)):
+            window = bars.iloc[: i + 1].copy()
+            signal = self.strategy.evaluate_signal(window)
+            price = window["close"].iloc[-1]
 
-        # Process each bar
-        for idx, (timestamp, bar) in enumerate(bars.iterrows()):
-            # Pass bars up to this point to strategy
-            bars_so_far = bars.iloc[:idx+1].copy()
-            close_price = bar["close"]
-
-            # First we check for stop loss or take profit thresholds
-            if self.position is not None:
-                exit_reason = self.position_manager.check_position_exit(
-                    symbol,
-                    close_price
-                )
-                if exit_reason:
-                    pnl = (close_price - self.position['entry_price']) * self.position['qty']
-                    self.trades.append({
-                        "entry_date": self.position["entry_date"],
-                        "entry_price": self.position["entry_price"],
-                        "exit_date": timestamp,
-                        "exit_price": close_price,
+            if signal == "buy" and position_qty == 0:
+                qty = (cash * self.position_manager.config.risk_per_trade) / price
+                cash -= qty * price
+                position_qty = qty
+                self.entry_price = price
+                self.entry_time = bars.index[i]
+                if self.verbose:
+                    print(f"[BUY] {symbol} x{qty:.3f} @ {price:.4f}")
+            
+            elif signal == "sell" and position_qty > 0:
+                cash += position_qty * price
+                pnl = (price - self.entry_price) * position_qty
+                trades.append(
+                    {
+                        "symbol": symbol,
+                        "entry_price": self.entry_price,
+                        "exit_price": price,
+                        "qty": position_qty,
                         "pnl": pnl,
-                        "exit_reason": exit_reason
-                    })
-                    print(f"-> EXIT ({exit_reason.upper()}) @ ${close_price:.2f} | P&L: ${pnl:.2f}")
-                    self.position_manager.close_position(symbol)
-                    self.position = None
-                    continue
-
-            signal = self.strategy.evaluate_signal(bars=bars_so_far)
-            print(f"[{idx}] {timestamp} | Close: ${close_price:.2f} | Signal: {signal}")
-
-            # Calculate Current Equity
-            realized_pnl = sum(t["pnl"] for t in self.trades)
-            unrealized_pnl = 0
-            if self.position is not None:
-                unrealized_pnl = (close_price - self.position['entry_price']) * self.position['qty']
-            current_equity = self.starting_cash + realized_pnl + unrealized_pnl
-            daily_pnl = realized_pnl + unrealized_pnl
-
-            # Execute trades
-            if signal == "buy" and self.position is None and self.position_manager.can_open_position(current_equity, daily_pnl):
-                # Calculate position size based on stop loss distance
-                stop_loss_distance = close_price * self.position_manager.config.stop_loss_pct
-                qty = self.position_manager.calculate_position_size(self.starting_cash, stop_loss_distance)
-
-                if qty > 0:
-                    pos = self.position_manager.open_position(symbol, close_price, qty, timestamp)
-                    self.position = pos
-                    print(f"-> ENTER LONG: {qty} shares @ ${close_price:.2f} | Stop: ${pos['stop_loss_price']:.2f}")
-                else:
-                    print("-> SKIP: Position too small for risk")
-            
-            elif signal == "sell" and self.position is not None:
-                pnl = (close_price - self.position['entry_price']) * self.position['qty']
-                self.trades.append({
-                    "entry_date": self.position['entry_date'],
-                    "entry_price": self.position['entry_price'],
-                    "exit_date": timestamp,
-                    "exit_price": close_price,
-                    "pnl": pnl
-                })
-                print(f"-> EXIT LONG @ ${close_price:.2f} | P&L: {pnl:.2f}")
-                self.position_manager.close_position(symbol)
-                self.position = None
-                
-            self.equity_curve.append({
-                "timestamp": timestamp,
-                "equity": current_equity
-            })
-        
-        print(f"\nBacktest complete! Processed {len(bars)} bars")
-        print(f"Total trades: {len(self.trades)}")
-
-        if self.trades:
-            print("\n=== Trade Summary ===")
-            for i, trade in enumerate(self.trades, 1):
-                print(
-                    f"Trade {i}: "
-                    f"Entry ${trade['entry_price']:.2f} → Exit ${trade['exit_price']:.2f} | "
-                    f"P&L: ${trade['pnl']:.2f}"
+                        "entry_time": self.entry_time,
+                        "exit_time": bars.index[i]
+                    }
                 )
+                if self.verbose:
+                    print(f"[SELL] {symbol} | P&L = {pnl:.4f}")
+                position_qty = 0
+                self.entry_price = None
+                self.entry_time = None
             
-            total_pnl = sum(t["pnl"] for t in self.trades)
-            wins = len([t for t in self.trades if t["pnl"] > 0])
-            losses = len([t for t in self.trades if t["pnl"] < 0])
-            
-            print(f"\nTotal P&L: ${total_pnl:.2f}")
-            print(f"Win Rate: {wins}/{len(self.trades)} ({100*wins/len(self.trades):.1f}%)")
-            print(f"Wins: {wins} | Losses: {losses}")
-        else:
-            print("No trades executed")
+            total_equity = cash + position_qty * price
+            equity_curve.append({"equity": total_equity})
+
+        if position_qty > 0 and self.entry_price is not None:
+            final_price = bars['close'].iloc[-1]
+            cash += position_qty * final_price
+            pnl = (final_price - self.entry_price) * position_qty
+            trades.append(
+                {
+                    "symbol": symbol,
+                    "entry_price": self.entry_price,
+                    "exit_price": final_price,
+                    "qty": position_qty,
+                    "pnl": pnl,
+                    "entry_time": self.entry_time,
+                    "exit_time": bars.index[-1]
+                }
+            )
+            if self.verbose:
+                print(f"[FINAL CLOSE] {symbol} @ {final_price:.4f} | P&L = {pnl:.4f}")
         
         result = BacktestResult(
-            symbol=symbol,
-            starting_cash=self.starting_cash,
-            trades=self.trades,
-            bars_processed=len(bars),
-            equity_curve=self.equity_curve
+            symbol = symbol,
+            starting_cash = self.starting_cash,
+            trades = trades,
+            bars_processed = len(bars),
+            equity_curve = equity_curve,
         )
+
+        print(f"\n--- Backtest Complete ---")
         result.print_summary()
-
-        return result.summary()
-
-if __name__ == "__main__":
-    from src.brokers.alpaca_broker import AlpacaBroker
-    from src.data.stock_data_provider import StockDataProvider
-    from src.strategies.simple_sma import SimpleSMA
-    
-    broker = AlpacaBroker(paper=True)
-    provider = StockDataProvider(
-        api_key=broker.client.api_key,
-        secret_key=broker.client.secret_key,
-    )
-    strategy = SimpleSMA(broker, "BMNR", data_provider=provider)
-    
-    engine = BacktestEngine(strategy, broker, provider)
-    results = engine.run("BMNR", days_back=120)
-    print(results)
+        return result

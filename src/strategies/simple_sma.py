@@ -45,8 +45,4 @@ class SimpleSMA(BaseStrategy):
         return "hold"
 
     def execute_trade(self, signal: str):
-        print(f"Signal for {self.symbol}: {signal}")
-        if signal == "buy":
-            self.broker.buy(self.symbol, 1)
-        elif signal == "sell":
-            self.broker.sell(self.symbol, 1)
+        print(f"{self.symbol}: Simple SMA signal = {signal}")
