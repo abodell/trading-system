@@ -12,13 +12,15 @@ class BacktestResult:
             starting_cash: float,
             trades: List[Dict],
             bars_processed: int,
-            equity_curve: List[Dict]
+            equity_curve: List[Dict],
+            strategy_name: str
     ):
         self.symbol = symbol
         self.starting_cash = starting_cash
         self.trades = trades
         self.bars_processed = bars_processed
         self.equity_curve = equity_curve
+        self.strategy_name = strategy_name
     
     @property
     def total_trades(self) -> int:
@@ -99,13 +101,14 @@ class BacktestResult:
             "avg_loss": self.avg_loss,
             "max_drawdown": self.max_drawdown,
             "total_commission": self.total_commission,
+            "strategy": self.strategy_name,
         }
     
     def print_summary(self):
         """Pretty print the summary."""
         s = self.summary()
         print("\n" + "="*60)
-        print(f"BACKTEST RESULTS: {s['symbol']}")
+        print(f"BACKTEST RESULTS: {s['symbol']} || Strategy: {self.strategy_name}")
         print("="*60)
         print(f"Bars Processed: {s['bars_processed']}")
         print(f"Total Trades: {s['total_trades']}")

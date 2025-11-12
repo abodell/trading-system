@@ -166,6 +166,7 @@ class BacktestEngine:
             trades = trades,
             bars_processed = len(bars),
             equity_curve = equity_curve,
+            strategy_name = self.strategy.__class__.__name__
         )
 
         print(f"\n--- Backtest Complete ---")
