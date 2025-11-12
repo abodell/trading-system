@@ -29,6 +29,11 @@ class BacktestResult:
         return sum(t["pnl"] for t in self.trades) if self.trades else 0.0
     
     @property
+    def total_commission(self) -> float:
+        """ Sum of all commission entries """
+        return sum(t.get("commission", 0.0) for t in self.trades)
+    
+    @property
     def win_rate(self) -> float:
         if not self.trades:
             return 0.0
@@ -92,7 +97,8 @@ class BacktestResult:
             "num_losses": self.num_losses,
             "avg_win": self.avg_win,
             "avg_loss": self.avg_loss,
-            "max_drawdown": self.max_drawdown
+            "max_drawdown": self.max_drawdown,
+            "total_commission": self.total_commission,
         }
     
     def print_summary(self):
@@ -104,6 +110,7 @@ class BacktestResult:
         print(f"Bars Processed: {s['bars_processed']}")
         print(f"Total Trades: {s['total_trades']}")
         print(f"Total P&L: ${s['total_pnl']:.2f}")
+        print(f"Commissions Paid: ${s['total_commission']:.2f}")
         print(f"Return: {s['return_pct']:.2f}%")
         print(f"Max Drawdown: {s['max_drawdown']*100:.2f}%")
         print(f"Win Rate: {s['win_rate']*100:.1f}% ({s['num_wins']}/{s['total_trades']})")

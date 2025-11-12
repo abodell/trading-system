@@ -25,6 +25,9 @@ class BacktestEngine:
             starting_cash: float = 10_000.0,
             risk_config: Optional[RiskConfig] = None,
             verbose: bool = False,
+            slippage_pct: float = 0.0005,
+            commission_stock_fixed: float = 0, # Alpaca does not charge fees on Stock trades
+            commission_crypto_pct: float = 0.0025,
     ):
         self.strategy = strategy
         self.broker = broker
@@ -32,6 +35,9 @@ class BacktestEngine:
         self.starting_cash = starting_cash
         self.current_cash = starting_cash
         self.verbose = verbose
+        self.slippage_pct = slippage_pct
+        self.commission_stock_fixed = commission_stock_fixed
+        self.commission_crypto_pct = commission_crypto_pct
 
         self.position_manager = PositionManager(risk_config or RiskConfig())
 
@@ -71,40 +77,73 @@ class BacktestEngine:
 
             if signal == "buy" and position_qty == 0:
                 qty = (cash * self.position_manager.config.risk_per_trade) / price
-                cash -= qty * price
+                # Apply slippage
+                slip_price = price * (1 + self.slippage_pct)
+                # Commission
+                notional = qty * slip_price
+                if "USD" in symbol or "/" in symbol:
+                    commission = notional * self.commission_crypto_pct
+                else:
+                    commission = self.commission_stock_fixed
+                
+                total_cost = notional + commission
+                if total_cost > cash:
+                    qty *= cash / total_cost
+                    notional = qty * slip_price
+                    total_cost = notional + commission
+                
+                cash -= total_cost
                 position_qty = qty
-                self.entry_price = price
+                self.entry_price = slip_price
                 self.entry_time = bars.index[i]
                 if self.verbose:
                     print(f"[BUY] {symbol} x{qty:.3f} @ {price:.4f}")
             
             elif signal == "sell" and position_qty > 0:
-                cash += position_qty * price
-                pnl = (price - self.entry_price) * position_qty
+                slip_price = price * (1 - self.slippage_pct)
+                notional = position_qty * slip_price
+
+                if "USD" in symbol or "/" in symbol:
+                    commission = notional * self.commission_crypto_pct
+                else:
+                    commission = self.commission_stock_fixed
+                
+                cash += notional - commission
+                pnl = (slip_price - self.entry_price) * position_qty - commission
                 trades.append(
                     {
                         "symbol": symbol,
                         "entry_price": self.entry_price,
-                        "exit_price": price,
+                        "exit_price": slip_price,
                         "qty": position_qty,
                         "pnl": pnl,
                         "entry_time": self.entry_time,
-                        "exit_time": bars.index[i]
+                        "exit_time": bars.index[i],
+                        "commission": commission,
+                        "slippage": self.slippage_pct
                     }
                 )
-                if self.verbose:
-                    print(f"[SELL] {symbol} | P&L = {pnl:.4f}")
+
                 position_qty = 0
                 self.entry_price = None
                 self.entry_time = None
-            
+
             total_equity = cash + position_qty * price
             equity_curve.append({"equity": total_equity})
 
         if position_qty > 0 and self.entry_price is not None:
             final_price = bars['close'].iloc[-1]
-            cash += position_qty * final_price
-            pnl = (final_price - self.entry_price) * position_qty
+            # Apply slippage
+            exit_price = final_price * (1 - self.slippage_pct)
+            # Notional
+            notional = position_qty * exit_price
+            if "USD" in symbol or "/" in symbol:
+                commission = notional * self.commission_crypto_pct
+            else:
+                commission = self.commission_stock_fixed
+
+            cash += notional - commission
+            pnl = (exit_price - self.entry_price) * position_qty - commission
             trades.append(
                 {
                     "symbol": symbol,
@@ -113,11 +152,13 @@ class BacktestEngine:
                     "qty": position_qty,
                     "pnl": pnl,
                     "entry_time": self.entry_time,
-                    "exit_time": bars.index[-1]
+                    "exit_time": bars.index[-1],
+                    "commission": commission,
+                    "slippage": self.slippage_pct
                 }
             )
             if self.verbose:
-                print(f"[FINAL CLOSE] {symbol} @ {final_price:.4f} | P&L = {pnl:.4f}")
+                print(f"[FINAL CLOSE] {symbol} @ {exit_price:.4f} | P&L = {pnl:.4f}")
         
         result = BacktestResult(
             symbol = symbol,
