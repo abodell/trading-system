@@ -9,3 +9,4 @@ scipy
 pandas-ta
 scikit-learn
 jupyterlab
+seaborn

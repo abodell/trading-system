@@ -2,7 +2,7 @@
 TRADING SYSTEM PROJECT - PLAN & PROGRESS
 ================================================================================
 Generated: October 17, 2025
-Last Updated: November 12, 2025, 2:00 PM EST
+Last Updated: November 12, 2025, 9:00 PM EST
 
 ================================================================================
 PART 1: WHAT WE'VE BUILT SO FAR
@@ -20,79 +20,58 @@ COMPLETED COMPONENTS (UPDATED):
 │
 ├── Broker Implementations
 │   ├── AlpacaBroker ✓ Phase 4 Hardened
-│   │   ├── buy(symbol, qty, latest_price) - Accepts price for validation
-│   │   ├── _wait_for_fill() - Polls and auto-cancels unfilled orders
-│   │   ├── Skips crypto orders < $10 notional before submission
-│   │   └── All other methods stable and validated
+│   │   └── All methods stable and validated
 │   │
 │   └── AlpacaClient (low-level wrapper)
 │       └── Handles all API communication
 │
-├── Strategies ✓ Phase 5 Core Set Complete
+├── Strategies ✓ Phase 6.1 Implemented
 │   ├── SimpleSMA (Moving Average crossover)
 │   ├── RSIStrategy (Mean Reversion)
 │   ├── MACDStrategy (Trend Following)
 │   ├── MeanReversionStrategy (Contrarian)
-│   └── TestStrategy (Pipeline validation)
+│   ├── TestStrategy (Pipeline validation)
+│   └── StrategyEnsemble (src/strategies/strategy_ensemble.py) ✓ NEW
+│       ├── Inherits from `BaseStrategy` for plug-and-play compatibility
+│       ├── Combines multiple strategies via static inclusion (all 4 core strategies)
+│       ├── Implements a `min_votes` quorum (e.g., requires 2+ votes) to filter noise
+│       └── Produces a single, consensus-based trading signal
 │
 ├── Trading Engine ✓ Phase 4 Live
 │   ├── Passes `latest_price` to broker for consistent validation
 │   ├── Gracefully handles skipped/cancelled orders
 │   └── Live paper trading running on Oracle Cloud
 │
-├── Backtesting Framework ✓ Phase 5 Refactored
+├── Backtesting Framework ✓ Phase 6 Enhanced
 │   ├── BacktestEngine (src/backtesting/backtest_engine.py)
-│   │   ├── Standardized loop to run any `BaseStrategy` subclass
-│   │   ├── Simulates trades, cash management, and position tracking
-│   │   ├── Auto-closes open positions at the end of a run for accurate P&L
+│   │   ├── Models realistic costs: slippage & asset-specific commissions ✓
+│   │   ├── Proven to run individual strategies and ensembles seamlessly
 │   │   └── Returns a standardized `BacktestResult` object
 │   │
 │   └── BacktestResult (src/backtesting/backtest_result.py)
-│       ├── Calculates all key performance metrics (P&L, Return %, Win Rate, Max Drawdown)
-│       ├── Includes methods to `print_summary()`, `plot_equity()`, and `to_csv()`
-│       └── Used by all individual and multi-strategy backtest scripts
+│       ├── Tracks and reports post-cost metrics (net P&L, commissions) ✓
+│       ├── Now includes `strategy_name` for clear labeling in results
+│       └── Supports all summary, plotting, and CSV export functions
 │
-├── Position Sizing & Risk Management ✓ Updated
-│   ├── RiskConfig: Clarified `max_position_size` is a quantity cap
+├── Analytics & Comparison Tools ✓ Phase 5.6 Complete
+│   ├── Multi-Strategy Runner (tests/backtest/backtest_all_strategies.py)
+│   │   ├── Runs all individual strategies + the ensemble across multiple symbols
+│   │   └── Exports aggregated results to a unified `strategy_comparison.csv`
+│   │
+│   └── Performance Dashboard (notebooks/performance_dashboard.ipynb)
+│       ├── Loads and visualizes the aggregated CSV
+│       └── Creates comparison plots for key metrics (Return %, Drawdown, etc.)
+│
+├── Position Sizing & Risk Management ✓ Stable
 │   └── PositionManager: Integrated into `BacktestEngine` and `TradingEngine`
 │
 └── Cloud Deployment ✓ Phase 4 Complete
     ├── Oracle Cloud Always-Free instance running Ubuntu
-    ├── Python 3.10+ environment with all dependencies
-    ├── `nohup` background process confirmed running 24/7
-    └── Real-time log tailing to `logs/live_*.log` validated
+    └── `nohup` background process confirmed running 24/7
 
-PHASE 3 COMPLETION SUMMARY:
-==========================
-
-WHAT WAS ACCOMPLISHED:
-
-1. Trading Engine Architecture
-   - Multi-strategy, multi-symbol support
-   - Concurrent execution in background thread
-   - Scheduler for market hours + crypto 24/7
-
-2. Order Execution (Hardened in Phase 4)
-   - Real orders on Alpaca paper account (stocks fill, crypto hangs)
-   - Order fill waiting now includes auto-cancellation for hung orders
-   - Added pre-submission validation to skip crypto orders < $10 notional
-   - Position delta calculation for actual fills remains robust
-
-3. Price Accuracy
-   - LatestQuoteRequest provides real-time ask/bid prices
-   - Engine passes latest price to broker, ensuring consistent data at sizing and execution
-
-4. Position Management
-   - Actual filled quantities stored (after fees)
-   - Handled `max_position_size` as a quantity cap, adjusting configs for proper sizing
-
-5. Testing & Validation
-   - TestStrategy used to validate pipeline and debug broker issues locally
-   - Live paper trading on cloud confirmed system stability despite API/environment issues
-
-STATUS: Phase 4 COMPLETE, Phase 5 IN PROGRESS
-Deliverable: A robust, fault-tolerant trading engine and a standardized backtesting framework with a library of initial strategies.
-Next: Compare strategy performance and build the analytics dashboard.
+STATUS: Phase 6.1 COMPLETE, Phase 6.2 IN PROGRESS
+Deliverable: A robust, fault-tolerant trading engine, a standardized backtesting framework with realistic costs, and an initial ensemble strategy.
+Next: Enhance the ensemble with dynamic weighting and begin live paper trading validation.
 
 ================================================================================
 PART 2: THE PLAN GOING FORWARD
@@ -101,192 +80,90 @@ PART 2: THE PLAN GOING FORWARD
 PHASE 4: SIMPLESMA LIVE PAPER TRADING (CLOUD DEPLOYMENT) - COMPLETE
 ==================================================================
 Goal: Verify system stability and extensibility.
-Outcome: ✓ SUCCESS. The system ran stably, identified and resolved real-world execution issues (crypto paper fills, risk sizing), and proved the architecture is robust. The live bot continues to run for data collection.
-
-Key Discoveries & Fixes from Phase 4:
-- Alpaca paper trading has known issues filling crypto `qty`-based orders. Our system now gracefully cancels these after a timeout.
-- Added a pre-submission check in the broker to skip crypto orders with a notional value under $10, preventing API errors.
-- Clarified that `RiskConfig.max_position_size` is a hard quantity cap, not a percentage. Updated configs to allow for proper risk-based sizing.
+Outcome: ✓ SUCCESS. The system ran stably and proved the architecture is robust.
 
 PHASE 5: BUILD ADDITIONAL STRATEGIES & REFACTOR BACKTESTING - COMPLETE
 ========================================================================
 Goal: Build a library of diverse strategies and standardize the backtesting process.
-Outcome: ✓ SUCCESS. Three new strategies (RSI, MACD, Mean Reversion) have been implemented. The backtesting logic has been centralized into a single, reusable `BacktestEngine`.
+Outcome: ✓ SUCCESS. Four core strategies implemented and backtesting refactored.
 
-Tasks Completed:
-├── ✓ Implemented `RSIStrategy` (Mean Reversion)
-├── ✓ Implemented `MACDStrategy` (Trend Following)
-├── ✓ Implemented `MeanReversionStrategy` (Contrarian)
-├── ✓ Refactored all individual backtest scripts (`tests/backtest/*.py`) to use the new `BacktestEngine`
-├── ✓ Standardized results via `BacktestResult` class (summary, plot, CSV export)
-└── ✓ Fixed "open final position" bug for accurate P&L calculation
-
-PHASE 5.5: ADD SLIPPAGE & COMMISSIONS TO BACKTEST (LOCAL) - NEXT
-================================================================
+PHASE 5.5: ADD SLIPPAGE & COMMISSIONS TO BACKTEST - COMPLETE
+=============================================================
 Goal: Make backtests realistic and comparable to paper/live results.
+Outcome: ✓ SUCCESS. The `BacktestEngine` now models slippage and asset-specific commissions (zero for stocks, percentage for crypto), providing realistic post-cost performance metrics.
 
-Tasks:
-├── Update `BacktestEngine` to model slippage (e.g., 0.05% per trade)
-├── Update `BacktestEngine` to deduct commissions from P&L
-│   ├── Stocks: $5 per round trip (example)
-│   └── Crypto: 0.25% of notional value
-├── Re-run all strategies through the updated engine
-└── Compare pre-cost and post-cost performance metrics
+PHASE 5.6: DASHBOARD & ANALYTICS MONITOR - COMPLETE
+=====================================================
+Goal: Provide a consolidated overview of system performance.
+Outcome: ✓ SUCCESS. A multi-strategy runner (`backtest_all_strategies.py`) automates backtesting for all strategies across multiple symbols, saving results to `strategy_comparison.csv`. A Jupyter notebook (`performance_dashboard.ipynb`) loads this data to visualize and compare performance.
 
-PHASE 5.6: DASHBOARD & ANALYTICS MONITOR (LOCAL + CLOUD) - NEXT
-================================================================
-Goal: Provide a consolidated overview of system performance, replacing manual log inspection.
-
-Tasks:
-├── Create a multi-strategy runner script (`tests/backtest/backtest_all_strategies.py`)
-│   ├── Runs backtests for all strategies (SMA, RSI, MACD, etc.)
-│   └── Aggregates summary metrics into a single CSV (`/results/strategy_comparison.csv`)
-│
-├── Build a prototype analytics dashboard (e.g., `notebooks/performance_dashboard.ipynb`)
-│   ├── Loads the aggregated `strategy_comparison.csv`
-│   ├── Creates comparison plots:
-│   │   ├── Bar chart of Total Return % vs. Max Drawdown % for each strategy
-│   │   └── Scatter plot of Win Rate vs. Sharpe Ratio
-│   ├── Loads and overlays individual equity curves from `/results/backtests/`
-│
-└── Later (Phase 6+): Migrate this notebook to a live web app (Streamlit/Dash) on the cloud server.
-
-PHASE 6: STRATEGY ENSEMBLE & VOTING (CLOUD DEPLOYMENT)
-======================================================
-Goal: Combine multiple strategies for better robustness
-      Deploy all validated strategies to cloud together
-      Run ensemble on real paper trading
-
-Why this is critical:
-- Single strategy is risky
-- Multiple uncorrelated strategies = stronger edge
-- Voting system reduces false signals
-- Only deploy ensemble, never single strategy
-
-Prerequisites:
-- SimpleSMA validated (Phase 4)
-- RSI, MACD, Mean Reversion all tested (Phase 5)
-- All strategies profitable on paper (post-costs)
-- All strategies passed walk-forward tests
-- Backtest vs paper returns match within 5%
+PHASE 6: STRATEGY ENSEMBLE & VOTING (CLOUD DEPLOYMENT) - IN PROGRESS
+=====================================================================
+Goal: Combine multiple strategies for better robustness and deploy for paper trading.
 
 Tasks:
 
-6.1 Implement Voting System
-├── Create src/engine/strategy_ensemble.py
-├── Consensus voting: Execute if 2+ strategies agree
-├── Weighted voting: Weight by recent performance
-├── Confidence scoring: Only trade high confidence
-├── Track individual strategy performance
-├── A/B test voting methods
-└── Paper trade ensemble for 1 month
+6.1 Implement Voting System - ✓ COMPLETE
+├── ✓ Moved ensemble to `src/strategies/strategy_ensemble.py`
+├── ✓ Implemented `BaseStrategy` interface for compatibility
+├── ✓ Implemented static majority voting (all 4 strategies included)
+├── ✓ Refined with `min_votes` quorum (e.g., 2+) to filter low-conviction signals
+└── ✓ Backtested ensemble vs. individual strategies across all symbols
 
-6.2 Risk Management for Ensemble
-├── Reduce position size if signals conflict
-├── Example: SimpleSMA says buy, RSI says sell = skip
-├── Track correlation between strategies
-├── Diversify across uncorrelated signals
-├── Maintain daily loss limits
-├── Enforce max positions across all strategies
-└── Higher thresholds for entry
+6.2 Weighted Voting & Risk Management - NEXT
+├── Implement weighted voting: allow weighting strategies by recent performance
+│   └── Idea: Use metrics from `strategy_comparison.csv` to derive weights
+├── Implement confidence scoring: only trade if vote margin exceeds a threshold
+├── Add conflict filtering: explicitly hold if `buy` and `sell` votes are tied or conflicting
+├── Track correlation between strategies to ensure diversification
+└── Enforce max positions and daily loss limits at the ensemble level
 
-6.3 Ensemble Validation
-├── Paper trade for 1+ month
-├── Measure: ensemble win rate vs individual strategies
-├── Compare: returns, drawdown, Sharpe ratio
-├── Validate ensemble outperforms single strategy
-├── Ensure no correlation issues
-├── Test on multiple symbols
-└── Only proceed if ensemble is superior
+6.3 Ensemble Validation & Deployment - LATER
+├── Paper trade the best ensemble version (static or weighted) for 1+ month
+├── Compare paper results against backtest results to validate performance
+├── Ensure ensemble consistently outperforms the best individual strategy
+└── Only proceed to real money if ensemble is demonstrably superior and stable
 
-Timeline: 2-3 weeks
-Deliverable: Working ensemble with 3+ strategies, paper trading validated
+Timeline: 1-2 weeks
+Deliverable: A validated ensemble strategy ready for final checks before real money.
 
 PHASE 7: FINAL VALIDATION BEFORE REAL MONEY
 =============================================
-Goal: Final checks before deploying real money
+Goal: Final checks before deploying real money.
 
 Tasks:
+├── Risk Management Checklist: Verify stop losses, take profits, loss limits.
+├── Performance Consistency: Ensure ensemble win rate > 40%, Sharpe > 0.5, Max DD < 20%.
+├── Paper vs Backtest Alignment: Confirm paper returns are within 5-10% of backtest.
+├── State Persistence & Recovery (NEW):
+│   ├── Implement a `StateManager` to save/load open positions (e.g., to JSON).
+│   ├── Ensure the `TradingEngine` can recover state after a restart.
+│   └── Test clean restarts during active paper trades.
 
-7.1 Risk Management Checklist
-├── Position sizing correct
-├── Stop losses trigger automatically
-├── Take profits trigger automatically
-├── Daily loss limits enforced
-├── Max position limits enforced
-├── Portfolio correlation checked
-└── All documented and tested
-
-7.2 Performance Consistency
-├── Ensemble win rate 40%+
-├── Positive Sharpe ratio
-├── Max drawdown < 20%
-├── Return per month consistent
-├── No black swan losses
-└── Paper traded 1+ month
-
-7.3 Paper vs Backtest Alignment
-├── Paper returns within 5% of backtest
-├── Win rates consistent
-├── Max drawdown consistent
-├── No hidden assumptions
-└── All metrics validated
-
-7.4 State Persistence & Recovery (NEW)
-├── Goal: Ensure positions and system state survive restarts and code updates.
-├── Implement lightweight persistence module (e.g., `src/utils/state_manager.py`)
-│   ├── Option A: JSON file (`positions_state.json`) storing open positions
-│   ├── Option B: Rebuild from `broker.get_positions()` at startup
-│   └── Option C: SQLite DB for scalability (later)
-├── On startup, the `TradingEngine` will restore open positions into each strategy’s `PositionManager`.
-├── Test clean restarts during active paper trades.
-└── Deliverable: A restart-safe engine that can resume trading without losing state.
-
-Timeline: 1 week (integrate before live trading)
-Deliverable: Restart-safe trading engine ready for real deployment
+Timeline: 1 week
+Deliverable: A restart-safe, fully validated trading engine.
 
 PHASE 8: REAL MONEY DEPLOYMENT (START SMALL)
 ==============================================
-Goal: Deploy ensemble to live trading with small capital
-
-Critical: Start with ONLY 5% of total capital
-├── Never risk all capital at once
-├── Prove strategy works first
-├── Scale gradually over 3 months
-├── Continuous monitoring required
-
-Deployment:
-├── Switch: paper-api.alpaca.markets to api.alpaca.markets
-├── Update .env with live account
-├── Start with $1000-$5000 position size
-├── Monitor daily: P&L, trades, drawdown
-├── Alert if drawdown > 10%
-├── Alert if daily loss > 2%
-├── Daily performance reports
-└── Weekly performance review
-
-Scaling (if successful):
-├── Month 1: 5% of capital ($500-$5000)
-├── Month 2-3: 25% of capital ($2500-$25000) if profitable
-├── Month 4+: Consider full deployment
-└── Never skip risk management
+Goal: Deploy ensemble to live trading with small capital.
+Critical: Start with ONLY 5% of total capital.
+Tasks:
+├── Switch to live Alpaca API keys.
+├── Start with a small position size ($1000-$5000).
+├── Monitor daily: P&L, trades, drawdown.
+├── Set up alerts for drawdown > 10% or daily loss > 2%.
+└── Scale capital gradually over 3+ months if profitable.
 
 Timeline: Ongoing
-Deliverable: Live profitable trading system
+Deliverable: A live, profitable trading system.
 
 PHASE 9: PERFORMANCE MONITORING & ALERTS
 =========================================
-Goal: Monitor live trading and detect issues early
-
+Goal: Monitor live trading and detect issues early.
 Tasks:
-├── Real-time P&L tracking per strategy (via dashboard)
-├── Daily/weekly performance summaries (from dashboard/reports)
-├── Alert if drawdown exceeds threshold
-├── Alert if strategy performance degrades
-├── Email/SMS notifications
-├── Dashboard showing live positions and equity curves
-├── Automatic trade logging to a persistent store (JSON or DB)
-└── Persist daily P&L snapshots for long-term performance tracking
+├── Set up real-time P&L tracking (via dashboard or reports).
+├── Implement email/SMS notifications for risk alerts.
+├── Persist all live trades and daily P&L snapshots to a database or log file.
 
 ================================================================================
 PART 3: TIMELINE SUMMARY
@@ -294,27 +171,12 @@ PART 3: TIMELINE SUMMARY
 
 AGGRESSIVE TIMELINE (1-2 months to real money):
 
-Week 1:    Phase 4 - SimpleSMA live paper trading (COMPLETE)
-Week 2-3:  Phase 5 - Build & backtest strategies, refactor engine (COMPLETE)
-Week 3-4:  Phase 5.5 / 5.6 - Add costs, build comparison runner & dashboard (NEXT)
-Week 5:    Phase 6 - Ensemble voting system
-Week 6:    Phase 6 - Paper trade ensemble (1 month minimum)
-Week 7:    Phase 7 - Final validation & persistence
+Week 1-2:  Phase 4 & 5 - Live validation and strategy dev (COMPLETE)
+Week 3:    Phase 5.5 / 5.6 - Add costs & build dashboard (COMPLETE)
+Week 4:    Phase 6.1 - Build & backtest static ensemble (COMPLETE)
+Week 5:    Phase 6.2 / 6.3 - Weighted ensemble & paper trading (NEXT)
+Week 6-7:  Phase 7 - Final validation & state persistence
 Week 8+:   Phase 8 - Real money (5% capital)
-
-CONSERVATIVE TIMELINE (3-4 months):
-
-Month 1:   Phase 4 & 5 - Live validation and strategy development (COMPLETE)
-Month 2:   Phase 5.5 / 5.6 - Realistic backtests and analytics
-Month 3:   Phase 6 - Ensemble voting, paper trading
-Month 4:   Phase 7 - Final validation & persistence
-Month 5+:  Phase 8 - Real money (conservative scaling)
-
-RECOMMENDED: Start aggressive, be flexible
-├── Monitor progress weekly
-├── Extend phases if issues found
-├── Don't rush Phase 6-7 validation
-├── Better slow and profitable than fast and broke
 
 ================================================================================
 PART 4: CRITICAL PATH TO PROFITABILITY
@@ -322,33 +184,12 @@ PART 4: CRITICAL PATH TO PROFITABILITY
 
 DO NOT SKIP THESE STEPS:
 
-Phase 1: Backtesting framework (DONE)
-Phase 2: Risk management (DONE)
-Phase 3: Trading engine with TestStrategy (DONE)
-Phase 4: SimpleSMA live paper trading & hardening (DONE)
-Phase 5: Build strategies & refactor backtester (DONE)
-Phase 5.5 / 5.6: Add costs & build comparison tools (NEXT)
-Phase 6: Ensemble voting system
-Phase 7: Final validation & state persistence
+Phase 1-4: Foundation, Engine, Initial Strategies (DONE)
+Phase 5.5: Realistic Costs in Backtest (DONE)
+Phase 5.6: Analytics & Comparison Dashboard (DONE)
+Phase 6:   Ensemble Voting System (IN PROGRESS)
+Phase 7:   Final Validation & State Persistence (NEXT)
 ONLY THEN: Phase 8 - Real money (5% capital)
-
-RED FLAGS - DO NOT PROCEED IF:
-├── Any strategy has >50% win rate in backtest (post-costs) (overfitted)
-├── Paper trading significantly worse than backtest
-├── Ensemble worse than best individual strategy
-├── Positive Sharpe ratio not achieved (post-costs)
-├── Max drawdown > 30%
-└── Can't document why each trade happened
-
-GREEN FLAGS - SAFE TO PROCEED:
-├── SimpleSMA runs stable for 2+ weeks (Phase 4)
-├── Multiple strategies show promise in backtests
-├── Backtest results are consistent and explainable
-├── Ensemble outperforms individual strategies
-├── Positive Sharpe ratio (>0.5 post-costs)
-├── Win rate 40-60% (realistic)
-├── Max drawdown < 20%
-└── Comprehensive documentation
 
 ================================================================================
 PART 5: KEY INSIGHT - ARCHITECTURE FIRST, STRATEGY LATER
@@ -427,47 +268,42 @@ Step 5: (Later) Paper trade it
 PART 8: FILES & STRUCTURE
 ================================================================================
 
-Phase 5 additions:
+Phase 6 additions:
 ├── src/strategies/
 │   ├── rsi_strategy.py ✓
 │   ├── macd_strategy.py ✓
-│   └── mean_reversion_strategy.py ✓
+│   ├── mean_reversion_strategy.py ✓
+│   └── strategy_ensemble.py ✓
 ├── src/backtesting/
-│   ├── backtest_engine.py (Refactored) ✓
-│   └── backtest_result.py (Enhanced) ✓
+│   ├── backtest_engine.py (Cost models added) ✓
+│   └── backtest_result.py (Cost metrics added) ✓
 ├── tests/backtest/
-│   ├── backtest_rsi.py (Refactored) ✓
-│   ├── backtest_macd.py (Refactored) ✓
-│   ├── backtest_mean_reversion.py (Refactored) ✓
-│   └── backtest_all_strategies.py (NEXT)
+│   └── backtest_all_strategies.py (Ensemble added) ✓
 ├── notebooks/
-│   └── performance_dashboard.ipynb (NEXT)
+│   └── performance_dashboard.ipynb (Complete) ✓
 └── results/
-    ├── backtests/ (Contains individual CSV results)
-    └── strategy_comparison.csv (NEXT)
+    └── strategy_comparison.csv (Generated) ✓
 
 ================================================================================
-PART 9: WHAT'S NEXT (Phase 5.5 and 5.6)
+PART 9: WHAT'S NEXT (Phase 6.2)
 ================================================================================
 
 Immediate next steps:
 
-1. Build the Multi-Strategy Runner
-   - Create `tests/backtest/backtest_all_strategies.py`.
-   - Loop through SMA, RSI, MACD, and Mean Reversion.
-   - Run each through the `BacktestEngine`.
-   - Save the aggregated results to `results/strategy_comparison.csv`.
+1. Enhance Ensemble with Weighted Voting
+   - Modify `StrategyEnsemble` to accept a dictionary of weights.
+   - Update the voting logic to use these weights instead of a simple vote count.
+   - In the runner, derive weights from the `strategy_comparison.csv` (e.g., based on `return_pct` or win rate).
 
-2. Build the Analytics Dashboard Prototype
-   - Create `notebooks/performance_dashboard.ipynb`.
-   - Load `strategy_comparison.csv` to create comparison bar charts and tables.
-   - Load individual equity curve CSVs to plot them on a single graph.
+2. Backtest and Compare Ensemble Versions
+   - Run the multi-strategy runner with both the static (equal weight) and weighted ensembles.
+   - Use the dashboard to compare their performance side-by-side. The goal is to see if weighting improves returns or reduces drawdown.
 
-3. Enhance Backtest Realism (Phase 5.5)
-   - Add slippage and commission models to the `BacktestEngine`.
-   - Re-run the multi-strategy runner to see the impact of costs.
+3. Prepare for Live Paper Trading
+   - Once the best ensemble version is identified, configure the live `TradingEngine` on the cloud server to use it.
+   - Start the one-month validation period (Phase 6.3).
 
-Timeline: Start immediately on the multi-strategy runner.
+Timeline: Start immediately on weighted voting.
 
 ================================================================================
 PART 10: NOTES FOR FUTURE CONTEXT WINDOWS
@@ -475,17 +311,19 @@ PART 10: NOTES FOR FUTURE CONTEXT WINDOWS
 
 Quick Reference:
 
-STATUS: Phase 5 COMPLETE
+STATUS: Phase 6.1 COMPLETE / Phase 6.2 (Weighted Voting) IN PROGRESS.
 - Core strategies (SMA, RSI, MACD, Mean Reversion) are built.
-- Backtesting is standardized through a robust `BacktestEngine`.
-- Live `TradingEngine` continues to run on the cloud for stability data.
+- Backtesting is standardized and includes realistic costs (slippage/commissions).
+- A multi-strategy runner and analytics dashboard are complete and functional.
+- A static, equal-weight `StrategyEnsemble` has been built, tested, and refined with a `min_votes` quorum to reduce noise.
 
-NEXT: Phase 5.5 / 5.6 (NOW)
-- Build the multi-strategy runner to compare all implemented strategies.
-- Create the analytics dashboard prototype to visualize results.
-- Add slippage and commission costs to the `BacktestEngine` for more realistic backtests.
+NEXT: Phase 6.2 (NOW)
+- Enhance the `StrategyEnsemble` to support weighted voting.
+- Use performance data from backtests to create an initial set of weights.
+- Compare the performance of the static vs. weighted ensemble.
+- Prepare to deploy the best version for a one-month live paper trading validation run.
 
 Key Files (Updated):
-- Backtest Engine: `src/backtesting/backtest_engine.py` (the single source of truth for backtesting logic)
-- Backtest Result: `src/backtesting/backtest_result.py` (for metrics, plotting, and CSV output)
-- Strategy Files: `src/strategies/*.py` (the library of models)
+- Ensemble Strategy: `src/strategies/strategy_ensemble.py` (the current focus of development)
+- Backtest Runner: `tests/backtest/backtest_all_strategies.py` (used to test all strategies, including the ensemble)
+- Analytics: `notebooks/performance_dashboard.ipynb` (used to visualize and compare results)
