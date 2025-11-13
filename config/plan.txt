@@ -327,3 +327,64 @@ Key Files (Updated):
 - Ensemble Strategy: `src/strategies/strategy_ensemble.py` (the current focus of development)
 - Backtest Runner: `tests/backtest/backtest_all_strategies.py` (used to test all strategies, including the ensemble)
 - Analytics: `notebooks/performance_dashboard.ipynb` (used to visualize and compare results)
+
+================================================================================
+PART 11: RESEARCH & ADVANCED TOPICS (During Ensemble Paper Trading)
+================================================================================
+
+While the ensemble strategy is undergoing its 1-month paper trading validation (Phase 6.3), this time can be used to research and prototype more advanced strategies and system enhancements. The goal is to explore new avenues for alpha generation, improved robustness, and cutting-edge trading techniques.
+
+Possible areas of research and development include:
+
+1.  **Advanced Strategy Architectures:**
+
+    *   **Adaptive Strategies / Regime Switching:**
+        *   **Concept:** Develop a mechanism to detect current market regimes (e.g., trending, ranging, high volatility, low volatility) and dynamically adapt the trading strategy or ensemble weighting to suit those conditions.
+        *   **Tasks:** Research methods for market regime identification (e.g., using volatility indicators, ADX, or unsupervised clustering on price action). Develop logic to smoothly transition between different sub-strategies or adjust ensemble weights based on detected regimes.
+    *   **Mean Reversion with Adaptive Bounds:**
+        *   **Concept:** Enhance existing mean reversion strategies by making their overbought/oversold thresholds dynamic, adapting to real-time market volatility (e.g., using dynamic bands like Bollinger Bands or Keltner Channels).
+        *   **Tasks:** Explore volatility-based indicator logic. Implement dynamic band calculations for entry/exit signals.
+    *   **Intermarket Analysis / Cross-Asset Spreads:**
+        *   **Concept:** Identify and trade relationships or divergences between different asset classes or highly correlated instruments (e.g., pairs trading, trading equity vs. bond indices, or commodity vs. currency pairs).
+        *   **Tasks:** Research statistical arbitrage techniques like cointegration. Analyze cross-asset correlations over various timeframes.
+    *   **Higher-Frequency Pattern Recognition (Intraday):**
+        *   **Concept:** If data granularity allows (e.g., minute bars), explore strategies based on intraday patterns, order flow analysis, or volume profile, moving beyond daily bar analysis.
+        *   **Tasks:** Research microstructural trading concepts. Identify common intraday patterns (e.g., opening range breakouts, VWAP deviations).
+
+2.  **Machine Learning / AI Integration:**
+
+    *   **ML for Signal Generation:**
+        *   **Concept:** Utilize supervised or unsupervised machine learning models to generate trading signals or predict price movements, rather than relying solely on fixed-rule indicators.
+        *   **Tasks:** Experiment with feature engineering from raw market data. Research suitable models (e.g., Gradient Boosting Machines, LSTMs for time series, Transformer models). Focus heavily on avoiding overfitting.
+    *   **Reinforcement Learning (RL) for Trading:**
+        *   **Concept:** Develop an AI agent that learns optimal trading actions (buy/sell/hold/exit) through interaction with a simulated market environment, maximizing a defined reward function (e.g., cumulative P&L, Sharpe ratio).
+        *   **Tasks:** Research RL frameworks (e.g., OpenAI Gym, Stable Baselines). Define state-action spaces and reward functions appropriate for financial markets. This is a highly complex, advanced topic.
+    *   **Sentiment Analysis as a Signal:**
+        *   **Concept:** Integrate external data sources like financial news headlines, social media posts, or analyst reports to extract sentiment as an additional trading signal.
+        *   **Tasks:** Research Natural Language Processing (NLP) techniques for sentiment extraction. Explore sentiment APIs (if available) or build custom parsers/models.
+
+3.  **Robustness & Optimization Techniques:**
+
+    *   **Walk-Forward Optimization (WFO):**
+        *   **Concept:** Implement a more robust backtesting methodology that optimizes strategy parameters on a rolling "in-sample" data window and then tests on an immediately following "out-of-sample" window. This mitigates overfitting and simulates live performance more realistically.
+        *   **Tasks:** Design a WFO framework. Analyze parameter stability across different walk-forward periods.
+    *   **Parameter Sensitivity Analysis:**
+        *   **Concept:** Systematically analyze how sensitive a strategy's performance is to small variations in its parameters. Robust strategies show gradual performance changes, while brittle ones "break" easily.
+        *   **Tasks:** Develop tools for visualizing parameter landscapes (e.g., 2D/3D performance plots). Use Monte Carlo simulations to test parameter robustness.
+    *   **Portfolio Optimization Models:**
+        *   **Concept:** Beyond simple signal voting, apply quantitative methods to optimize capital allocation across different strategies or assets, considering risk, return, and correlation (e.g., Modern Portfolio Theory, Risk Parity).
+        *   **Tasks:** Research Markowitz, Black-Litterman, or risk-budgeting models. Develop logic to optimize portfolio weights.
+    *   **Event-Driven Trading:**
+        *   **Concept:** Develop strategies that specifically target identifiable market events (e.g., earnings announcements, economic data releases, Fed meetings) which often cause predictable short-term volatility and price movements.
+        *   **Tasks:** Identify reliable sources for event data. Design strategies to capitalize on pre- and post-event price action.
+
+4.  **Infrastructure & Data Improvements:**
+
+    *   **Alternative Data Sources:**
+        *   **Concept:** Explore and integrate non-traditional data (e.g., satellite imagery, credit card transactions, supply chain data, web scraping results) that can provide unique insights not found in price/volume.
+        *   **Tasks:** Research available alternative datasets. Develop pipelines to acquire and process unstructured or semi-structured data.
+    *   **Advanced Performance Metrics:**
+        *   **Concept:** Implement and track more sophisticated risk-adjusted performance metrics (e.g., Sortino Ratio, Calmar Ratio, Value at Risk (VaR), Conditional VaR, Alpha/Beta relative to benchmarks).
+        *   **Tasks:** Incorporate calculations for these metrics into `BacktestResult` or a dedicated analytics module.
+
+This research during the ensemble's paper trading period ensures continuous advancement of the trading system, positioning it for higher sophistication and potentially more robust profitability in future phases.
